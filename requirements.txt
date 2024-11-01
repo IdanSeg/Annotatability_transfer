@@ -1,0 +1,12 @@
+numpy
+scanpy
+numba
+pandas
+scikit-learn
+scipy
+seaborn
+matplotlib
+pytest
+scvi-tools
+squidpy
+-e /Users/idansegal/Documents/Coding/Annotatability
