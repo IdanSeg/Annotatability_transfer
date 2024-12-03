@@ -83,7 +83,8 @@ def assign_annotations(adata, all_conf, all_var, cutoff_conf, cutoff_var, annota
     )
 
     annotation_list = []
-    for i in tqdm(range(adata.n_obs), desc='Assigning annotations'):
+    # Disable tqdm output by setting disable=True
+    for i in tqdm(range(adata.n_obs), desc='Assigning annotations', disable=True):
         if adata.obs['conf_binaries'].iloc[i]:
             if (adata.obs['conf'].iloc[i] > 0.95) & (adata.obs['var'].iloc[i] < 0.15):
                 annotation_list.append('Easy-to-learn')
@@ -382,7 +383,8 @@ def find_optimal_compositions(
                 best_train_indices = None
 
                 # For each composition, train and get test loss
-                for comp in tqdm(compositions, desc=f"Testing compositions for Train Size={T} - Run {run}"):
+                # Disable tqdm output by setting disable=True
+                for comp in tqdm(compositions, desc=f"Testing compositions for Train Size={T} - Run {run}", disable=True):
                     e, a, h = comp
                     # Ensure not exceeding group counts
                     if e > E or a > A or h > H:
