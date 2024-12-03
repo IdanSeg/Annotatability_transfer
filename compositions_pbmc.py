@@ -1,6 +1,9 @@
 from pathlib import Path
 from itertools import combinations
 import warnings
+
+import scvi
+
 print("start import")
 warnings.filterwarnings("ignore")
 import sys
@@ -123,58 +126,12 @@ def assign_annotations(adata, all_conf, all_var, cutoff_conf, cutoff_var, annota
     adata.obs['Variability'] = adata.obs['var']
     return adata
 
-import scanpy as sc
-
-# Load the dataset
-# PBMC_full is obtained from https://cellxgene.cziscience.com/collections/03f821b4-87be-4ff4-b65a-b5fc00061da7
-# Change to your path below
-adata_full = sc.read_h5ad('PBMC_full.h5ad')
-
-# Define the list of cell types to keep (updated to match actual cell types in the dataset)
-cell_types_to_keep = [
-    'B cell',
-    'CD4-positive helper T cell',
-    'naive thymus-derived CD8-positive, alpha-beta T cell',
-    'naive thymus-derived CD4-positive, alpha-beta T cell',
-    'classical monocyte',
-    'dendritic cell',
-    'CD16-negative, CD56-bright natural killer cell',
-    'mature NK T cell'
-]
-
-# **Filter to include only healthy cells**
-if 'COVID_status' in adata_full.obs.columns:
-    if 'Healthy' in adata_full.obs['COVID_status'].unique():
-        adata_healthy = adata_full[adata_full.obs['COVID_status'] == 'Healthy'].copy()
-        print("Filtered healthy cells using 'COVID_status'.")
-    else:
-        raise ValueError("'Healthy' label not found in 'COVID_status' column.")
-else:
-    raise KeyError("'COVID_status' column not found in adata_full.obs.")
-
-# Inspect the cell types available in the healthy dataset before filtering
-print("Available cell types in the healthy dataset before filtering:")
-print(adata_healthy.obs['cell_type'].unique())
-
-# **Filter the data to include only the selected cell types**
-adata_healthy = adata_healthy[adata_healthy.obs['cell_type'].isin(cell_types_to_keep)].copy()
-
-# **Throw an error if no healthy cells are found after cell type filtering**
-if adata_healthy.n_obs == 0:
-    raise ValueError("No healthy cells found after filtering for the selected cell types.")
-
-# Inspect the cell types available after filtering
-print("Available cell types in the healthy dataset after filtering:")
-print(adata_healthy.obs['cell_type'].unique())
-
-# Normalize and log-transform the data
-sc.pp.normalize_total(adata_healthy, target_sum=1e4)
-sc.pp.log1p(adata_healthy)
-
-pbmc = adata_healthy
-
-subset_size = 10000
-pbmc = pbmc[pbmc.obs.sample(n=subset_size, random_state=42).index].copy()
+# Load and preprocess the data
+adata_pbmc = scvi.data.pbmc_dataset()
+# Filter out infrequent cell type (Megakaryocytes)
+pbmc = adata_pbmc[adata_pbmc.obs['str_labels'].isin(['B cells', 'CD4 T cells', 'CD8 T cells', 'CD14+ Monocytes', 'Dendritic Cells', 'FCGR3A+ Monocytes', 'NK cells'])]
+sc.pp.normalize_per_cell(pbmc, counts_per_cell_after=1e4)
+sc.pp.log1p(pbmc)
 
 # Final verification
 print(f"Final number of cells after all filtering: {pbmc.n_obs}")

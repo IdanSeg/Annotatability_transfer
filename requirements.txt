@@ -186,5 +186,3 @@ yarl==1.14.0
 zarr==2.18.2
 zict==3.0.0
 zipp==3.20.2
-
-pip install torch==2.4.1 --target . --no-cache-dir

@@ -1,0 +1,35 @@
+import sys
+import torch
+from annotability_automations import *
+from dataset import *
+from merfish import Merfish
+
+### GLOBAL PARAMETERS ###
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+repeats_per_size = 12
+train_sizes = [500, 1750, 3000]
+### END GLOBAL PARAMETERS ###
+
+# Read the data argument from the command line
+if len(sys.argv) < 2:
+    print("Usage: python script.py <data>")
+    sys.exit(1)
+
+dataset_name = sys.argv[1]
+
+if dataset_name == 'merfish':
+    dataset = Merfish()
+    dataset.load_data()
+    adata = dataset.preprocess_data()
+    label_key = 'CellType'
+    epoch_num = 150
+    swap_probability = 0.1
+    percentile = 90
+    batch_size = 64
+
+adata, group_counts = annotate(adata, label_key, epoch_num, device, swap_probability, percentile, batch_size)
+best_compositions, label_encoder = find_optimal_compositions(dataset_name, adata, label_key, group_counts, train_sizes, 
+                        repeats_per_size, dataset_name+".csv", device, epoch_num, batch_size)
+visualize_optimal_compositions(dataset_name+".csv")
+highest_confidense_samples(dataset_name+".csv", adata, train_sizes, device, label_encoder)
+
