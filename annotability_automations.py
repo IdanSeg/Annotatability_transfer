@@ -575,7 +575,7 @@ def visualize_optimal_compositions(csv_file):
     plt.savefig('optimal_compositions.png')
     logging.info('Visualization saved as optimal_compositions.png')
 
-def highest_confidense_samples(input_csv, adata, train_sizes, device, global_label_encoder):
+def highest_confidence_samples(input_csv, adata, train_sizes, device, global_label_encoder):
     logging.info('Starting processing of highest confidence samples...')
     # Read the optimal_compositions_detailed.csv to get the test indices used previously
     best_comp_df = pd.read_csv(input_csv)
