@@ -160,7 +160,6 @@ def train_and_evaluate_model(
     Returns:
     - test_loss (float): Loss on the test dataset.
     """
-    logging.info('Starting training and evaluation of the model...')
     # Encode labels using the provided label encoder
     logging.debug('Encoding labels for training and testing datasets...')
     one_hot_label_train = one_hot_encode(adata_train.obs[label_key], label_encoder=label_encoder)
@@ -194,7 +193,6 @@ def train_and_evaluate_model(
     tensor_y_test = torch.LongTensor(np.argmax(one_hot_label_test, axis=1)).to(device)
 
     # Train the network
-    logging.info('Starting training for %d epochs...', epoch_num)
     net.train()
     for epoch in range(epoch_num):
         logging.debug('Epoch %d/%d', epoch + 1, epoch_num)
@@ -204,17 +202,13 @@ def train_and_evaluate_model(
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
-    logging.info('Training complete.')
 
     # Evaluate on test set
-    logging.info('Evaluating the model on the test dataset...')
     net.eval()
     with torch.no_grad():
         outputs = net(tensor_x_test)
         test_loss = criterion(outputs, tensor_y_test).item()
-    logging.info('Evaluation complete. Test loss: %f', test_loss)
 
-    logging.info('Training and evaluation process completed.')
     return test_loss
 
 def annotate(adata, label_key, epoch_num, device, swap_probability, percentile, batch_size):
@@ -298,7 +292,6 @@ def find_optimal_compositions(
         current_runs = existing_counts.get(T, 0)
         runs_needed = repeats_per_size - current_runs
 
-        logging.info('Processing Train_Size=%d: current_runs=%d, runs_needed=%d', T, current_runs, runs_needed)
 
         if runs_needed <= 0:
             # Use existing entries
@@ -325,12 +318,9 @@ def find_optimal_compositions(
             continue  # Skip computation for this T as all repeats are already done
 
         else:
-            logging.info(f"Processing {dataset_name} train dataset size: {T} (Run {current_runs + 1} to {repeats_per_size})")
-
             # Calculate test size (25% of train size)
             test_size = int(0.25 * T)
             total_size = T + test_size
-            logging.info(f"Total dataset size (Train + Test): {total_size} (Train: {T}, Test: {test_size})")
 
             # Select the test indices once per dataset size
             all_indices = adata.obs.index.tolist()
@@ -373,11 +363,7 @@ def find_optimal_compositions(
                 results_df.to_csv(csv_file, index=False)
                 continue
 
-            logging.info(f"Total compositions for Train Size={T}: {len(compositions)}")
-
             for run in range(current_runs + 1, repeats_per_size + 1):
-                logging.info(f"--- Run {run} for Train_Size={T} ---")
-
                 min_loss = float('inf')
                 best_comp = None
                 best_train_indices = None
@@ -435,9 +421,6 @@ def find_optimal_compositions(
 
                 if best_comp is not None:
                     easy, ambiguous, hard = best_comp
-                    logging.info(
-                        f"Best composition for {dataset_name} Train_Size={T} (Run {run}): Easy={easy}, Ambiguous={ambiguous}, Hard={hard}, Test Loss={min_loss}"
-                    )
 
                     # Append to best_compositions
                     if T not in best_compositions:
@@ -499,7 +482,7 @@ def visualize_optimal_compositions(csv_file):
         logging.info('Loaded results from %s', csv_file)
     except FileNotFoundError:
         logging.error(f"CSV file '{csv_file}' not found.")
-        results_df = pd.DataFrame(columns=['Train_Size', 'Easy', 'Ambiguous', 'Hard', 'Test_Loss'])
+        results_df = pd.DataFrame(columns=['Train_Size', 'Easy', 'Ambiguous', 'Hard', 'Test_Loss', 'Train_Indices', 'Test_Indices'])
 
     # Filter out rows with missing compositions
     results_df = results_df.dropna(subset=['Easy', 'Ambiguous', 'Hard'])
@@ -521,7 +504,7 @@ def visualize_optimal_compositions(csv_file):
     results_df['Proportion_Ambiguous'] = results_df['Ambiguous'] / results_df['Total']
     results_df['Proportion_Hard'] = results_df['Hard'] / results_df['Total']
 
-    # Group by Train_Size and calculate mean and standard deviation of proportions
+    # Group by Train_Size and calculate mean and std of proportions
     grouped = results_df.groupby('Train_Size').agg({
         'Proportion_Easy': ['mean', 'std'],
         'Proportion_Ambiguous': ['mean', 'std'],
@@ -529,12 +512,14 @@ def visualize_optimal_compositions(csv_file):
     }).reset_index()
 
     # Flatten MultiIndex columns
-    grouped.columns = ['Train_Size',
-                    'Proportion_Easy_mean', 'Proportion_Easy_std',
-                    'Proportion_Ambiguous_mean', 'Proportion_Ambiguous_std',
-                    'Proportion_Hard_mean', 'Proportion_Hard_std']
+    grouped.columns = [
+        'Train_Size',
+        'Proportion_Easy_mean', 'Proportion_Easy_std',
+        'Proportion_Ambiguous_mean', 'Proportion_Ambiguous_std',
+        'Proportion_Hard_mean', 'Proportion_Hard_std'
+    ]
 
-    # Ensure that the mean proportions sum to 1 (optional assertion)
+    # Optional: Ensure that the mean proportions sum to 1 (approximately)
     if not np.allclose(grouped[['Proportion_Easy_mean', 'Proportion_Ambiguous_mean', 'Proportion_Hard_mean']].sum(axis=1), 1):
         logging.error("Mean proportions do not sum to 1.")
         raise ValueError("Mean proportions do not sum to 1.")
@@ -549,27 +534,36 @@ def visualize_optimal_compositions(csv_file):
     proportion_h_std = grouped['Proportion_Hard_std'].values
 
     # Verify that all arrays have the same length
-    array_lengths = [len(train_sizes), len(proportion_e_mean), len(proportion_a_mean), len(proportion_h_mean),
-                    len(proportion_e_std), len(proportion_a_std), len(proportion_h_std)]
+    array_lengths = [
+        len(train_sizes), len(proportion_e_mean), len(proportion_a_mean), len(proportion_h_mean),
+        len(proportion_e_std), len(proportion_a_std), len(proportion_h_std)
+    ]
     if len(set(array_lengths)) != 1:
         logging.error(f"Array length mismatch: {array_lengths}")
         raise ValueError(f"Array length mismatch: {array_lengths}")
 
-    # Plotting grouped bar chart with error bars (variance) without percentage labels
+    # Plotting grouped bar chart with error bars
     logging.info('Creating plot for optimal compositions...')
-    # Set up the plot for Grouped Bar Chart
     fig, ax = plt.subplots(figsize=(14, 8))
     index = np.arange(len(train_sizes))
+    bar_width = 0.2
 
-    # Customize the axes
+    # Plot the bars
+    ax.bar(index - bar_width, proportion_e_mean, bar_width,
+           yerr=proportion_e_std, capsize=5, label='Easy')
+    ax.bar(index, proportion_a_mean, bar_width,
+           yerr=proportion_a_std, capsize=5, label='Ambiguous')
+    ax.bar(index + bar_width, proportion_h_mean, bar_width,
+           yerr=proportion_h_std, capsize=5, label='Hard')
+
     ax.set_xticks(index)
     ax.set_xticklabels([str(size) for size in train_sizes], rotation=45)
     ax.set_ylabel('Average Proportion')
     ax.set_xlabel('Train Set Size')
     ax.set_title('Optimal Composition of Train Set Samples with Standard Deviation')
-    ax.legend(loc='upper right')
     ax.set_ylim(0, 1)
     ax.grid(axis='y', linestyle='--', alpha=0.7)
+    ax.legend(loc='upper right')
 
     plt.tight_layout()
     plt.savefig('optimal_compositions.png')
@@ -633,13 +627,13 @@ def highest_confidence_samples(input_csv, adata, train_sizes, device, global_lab
             epoch_num=30, device=device, batch_size=64
         )
         
-        # Save the result
-        high_conf_df = high_conf_df.append({
+        # Save the result using direct indexing (instead of append)
+        high_conf_df.loc[len(high_conf_df)] = {
             'Train_Size': T,
             'Train_Indices': ','.join(map(str, top_conf_indices)),
             'Test_Indices': ','.join(map(str, test_indices)),
             'Test_Loss': test_loss
-        }, ignore_index=True)
+        }
         
         logging.info(f"Train_Size={T}, Test Loss={test_loss}")
 
