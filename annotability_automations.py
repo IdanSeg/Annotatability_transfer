@@ -569,8 +569,10 @@ def visualize_optimal_compositions(csv_file):
     plt.tight_layout()
     plt.savefig('optimal_compositions.png')
     logging.info('Visualization saved as optimal_compositions.png')
-    
+
 def highest_confidence_samples(input_csv, adata, train_sizes, device, global_label_encoder, dataset_name):
+    high_conf_csv = dataset_name + ' high_confidence_compositions.csv'
+
     logging.info('Starting processing of highest confidence samples...')
     # Read the csv to get the test indices used previously
     best_comp_df = pd.read_csv(input_csv)
@@ -639,12 +641,12 @@ def highest_confidence_samples(input_csv, adata, train_sizes, device, global_lab
         logging.info(f"Train_Size={T}, Test Loss={test_loss}")
 
     # Save the results to a new CSV file
-    high_conf_df.to_csv(dataset_name + ' high_confidence_compositions.csv', index=False)
+    high_conf_df.to_csv(high_conf_csv, index=False)
     logging.info("High-confidence compositions have been saved to 'high_confidence_compositions.csv'.")
 
     # Read the results from the CSV files
     optimal_comp_df = pd.read_csv(input_csv)
-    high_conf_df = pd.read_csv(dataset_name + 'high_confidence_compositions.csv')
+    high_conf_df = pd.read_csv(high_conf_csv)
 
     # Calculate the average test loss for each Train_Size in the optimal compositions
     optimal_loss_df = optimal_comp_df.groupby('Train_Size')['Test_Loss'].mean().reset_index()
