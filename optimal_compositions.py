@@ -32,5 +32,5 @@ adata, group_counts = annotate(adata, label_key, epoch_num_annot, device, swap_p
 best_compositions, label_encoder = find_optimal_compositions(dataset_name, adata, label_key, group_counts, train_sizes, 
                         repeats_per_size, dataset_name+".csv", device, epoch_num_composition, batch_size)
 visualize_optimal_compositions(dataset_name+".csv")
-highest_confidence_samples(dataset_name+".csv", adata, train_sizes, device, label_encoder)
+highest_confidence_samples(dataset_name+".csv", adata, train_sizes, device, label_encoder, dataset_name)
 
