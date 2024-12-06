@@ -519,7 +519,7 @@ def visualize_optimal_compositions(csv_file):
         'Proportion_Hard_mean', 'Proportion_Hard_std'
     ]
 
-    # Optional: Ensure that the mean proportions sum to 1 (approximately)
+    # Ensure that the mean proportions sum to 1 (approximately)
     if not np.allclose(grouped[['Proportion_Easy_mean', 'Proportion_Ambiguous_mean', 'Proportion_Hard_mean']].sum(axis=1), 1):
         logging.error("Mean proportions do not sum to 1.")
         raise ValueError("Mean proportions do not sum to 1.")
@@ -542,20 +542,21 @@ def visualize_optimal_compositions(csv_file):
         logging.error(f"Array length mismatch: {array_lengths}")
         raise ValueError(f"Array length mismatch: {array_lengths}")
 
-    # Plotting grouped bar chart with error bars
+    # Plotting grouped bar chart with error bars and preferred visualization properties
     logging.info('Creating plot for optimal compositions...')
     fig, ax = plt.subplots(figsize=(14, 8))
+    bar_width = 0.25
     index = np.arange(len(train_sizes))
-    bar_width = 0.2
 
-    # Plot the bars
-    ax.bar(index - bar_width, proportion_e_mean, bar_width,
-           yerr=proportion_e_std, capsize=5, label='Easy')
-    ax.bar(index, proportion_a_mean, bar_width,
-           yerr=proportion_a_std, capsize=5, label='Ambiguous')
-    ax.bar(index + bar_width, proportion_h_mean, bar_width,
-           yerr=proportion_h_std, capsize=5, label='Hard')
+    # Plot the bars with the preferred colors and labels
+    bars_easy = ax.bar(index - bar_width, proportion_e_mean, bar_width,
+                       yerr=proportion_e_std, capsize=5, label='Easy-to-learn', color='green')
+    bars_ambiguous = ax.bar(index, proportion_a_mean, bar_width,
+                            yerr=proportion_a_std, capsize=5, label='Ambiguous', color='orange')
+    bars_hard = ax.bar(index + bar_width, proportion_h_mean, bar_width,
+                       yerr=proportion_h_std, capsize=5, label='Hard-to-learn', color='red')
 
+    # Customize the axes
     ax.set_xticks(index)
     ax.set_xticklabels([str(size) for size in train_sizes], rotation=45)
     ax.set_ylabel('Average Proportion')
@@ -568,7 +569,7 @@ def visualize_optimal_compositions(csv_file):
     plt.tight_layout()
     plt.savefig('optimal_compositions.png')
     logging.info('Visualization saved as optimal_compositions.png')
-
+    
 def highest_confidence_samples(input_csv, adata, train_sizes, device, global_label_encoder, dataset_name):
     logging.info('Starting processing of highest confidence samples...')
     # Read the csv to get the test indices used previously
