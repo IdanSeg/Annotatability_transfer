@@ -26,7 +26,7 @@ echo "Set PYTHONPATH to include ~/lab/scTab."
 
 # Run the training script with desired arguments
 echo "Starting TabNet training..."
-python3 -u scripts/py_scripts/train_tabnet.py \
+python3 -u /cs/usr/idan724/lab/scTab/scripts/py_scripts/train_tabnet.py \
     --cluster="jsc" \
     --version='version_1' \
     --data_path="/cs/usr/idan724/lab/merlin_cxg_minimal/merlin_cxg_2023_05_15_sf-log1p_minimal" \
