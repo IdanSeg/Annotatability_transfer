@@ -3,6 +3,8 @@ import torch
 from annotability_automations import *
 from dataset import *
 from merfish import Merfish
+from minimal import Minimal
+from pbmc import PBMC
 
 ### GLOBAL PARAMETERS ###
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -24,6 +26,28 @@ if dataset_name == 'merfish':
     label_key = 'CellType'
     epoch_num_annot = 150
     epoch_num_composition = 30
+    swap_probability = 0.1
+    percentile = 90
+    batch_size = 64
+
+if dataset_name == 'minimal':
+    dataset = Minimal()
+    dataset.load_data()
+    adata = dataset.preprocess_data()
+    label_key = 'CellType'
+    epoch_num_annot = 1
+    epoch_num_composition = 1
+    swap_probability = 0.1
+    percentile = 90
+    batch_size = 2048
+
+if dataset_name == 'pbmc':
+    dataset = PBMC()
+    dataset.load_data()
+    adata = dataset.preprocess_data()
+    label_key = 'cell_type'
+    epoch_num_annot = 1
+    epoch_num_composition = 1
     swap_probability = 0.1
     percentile = 90
     batch_size = 64
