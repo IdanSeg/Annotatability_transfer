@@ -518,7 +518,7 @@ def highest_confidence_samples(input_csv, adata, train_sizes, device, global_lab
         adata_test = adata[test_indices].copy()
         
         # Train and get test loss
-        test_loss = train_and_evaluate_model(
+        test_loss = train_and_evaluate_mlp(
             adata_train, adata_test, label_key='CellType', label_encoder=global_label_encoder,
             num_classes=len(global_label_encoder.classes_),  # Added num_classes
             epoch_num=30, device=device, batch_size=64

@@ -20,12 +20,24 @@ from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
+class BaseNet(nn.Module):
+    def __init__(self, layer_sizes):
+        super(BaseNet, self).__init__()
+        layers = []
+        for i in range(len(layer_sizes) - 1):
+            layers.append(nn.Linear(layer_sizes[i], layer_sizes[i+1]))
+        self.layers = nn.ModuleList(layers)
+
+    def forward(self, x):
+        for layer in self.layers[:-1]:
+            x = torch.relu(layer(x))
+        x = self.layers[-1](x)
+        return torch.log_softmax(x, dim=1)
+
 class Net(BaseNet):
     def __init__(self, input_size, output_size):
         layer_sizes = [input_size, int(input_size / 2), int(input_size / 4), output_size]
         super(Net, self).__init__(layer_sizes)
-
-class BaseNet(nn.Module):
     def __init__(self, layer_sizes):
         super(BaseNet, self).__init__()
         layers = []
