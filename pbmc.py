@@ -8,8 +8,6 @@ class PBMC(Dataset):
     def load_data(self):
         # Load data and save it as an instance attribute
         self.adata_pbmc = sc.read_h5ad(FILE_PATH)
-        print(self.adata.obs.columns)  # List all metadata columns
-        print(self.adata.obs.head())   # View the first few rows of metadata
         return self.adata_pbmc
 
     def preprocess_data(self):
