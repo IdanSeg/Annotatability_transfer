@@ -2,7 +2,7 @@
 from dataset import Dataset
 import scanpy as sc
 import squidpy as sq
-FILE_PATH = "datasets/pbmc/dfb51f99-a306-4daa-9f4a-afe7de65bbf2.h5ad "
+FILE_PATH = "/cs/labs/ravehb/idan724/annotatability/datasets/pbmc/dfb51f99-a306-4daa-9f4a-afe7de65bbf2.h5ad"
 
 class PBMC(Dataset):
     def load_data(self):
