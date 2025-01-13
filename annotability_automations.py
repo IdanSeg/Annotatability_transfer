@@ -20,9 +20,12 @@ from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from mlp_net import *
-from scTab_net import *
+# from scTab_net import *
 
-model_runners = {"mlp":train_and_evaluate_mlp, "scTab":train_and_evaluate_scTab}
+model_runners = {
+    "mlp":train_and_evaluate_mlp, 
+    # "scTab":train_and_evaluate_scTab
+    }
 
 # Set up logging configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -125,7 +128,7 @@ def find_optimal_compositions(
     device,
     epoch_num,
     batch_size,
-    model="scTab"
+    model="mlp"
 ):
     """
     Runs the training and evaluation experiment for a given dataset.

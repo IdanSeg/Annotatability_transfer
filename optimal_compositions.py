@@ -30,16 +30,16 @@ if dataset_name == 'merfish':
     percentile = 90
     batch_size = 64
 
-if dataset_name == 'minimal':
-    dataset = Minimal()
-    dataset.load_data()
-    adata = dataset.preprocess_data()
-    label_key = 'CellType'
-    epoch_num_annot = 1
-    epoch_num_composition = 1
-    swap_probability = 0.1
-    percentile = 90
-    batch_size = 2048
+# if dataset_name == 'minimal':
+#     dataset = Minimal()
+#     dataset.load_data()
+#     adata = dataset.preprocess_data()
+#     label_key = 'CellType'
+#     epoch_num_annot = 1
+#     epoch_num_composition = 1
+#     swap_probability = 0.1
+#     percentile = 90
+#     batch_size = 2048
 
 if dataset_name == 'pbmc':
     dataset = PBMC()
