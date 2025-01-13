@@ -49,7 +49,7 @@ if dataset_name == 'pbmc':
     epoch_num_annot = 1
     epoch_num_composition = 1
     swap_probability = 0.1
-    percentile = 25
+    percentile = 10
     batch_size = 64
 
 adata, group_counts = annotate(adata, label_key, epoch_num_annot, device, swap_probability, percentile, batch_size)
