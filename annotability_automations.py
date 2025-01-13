@@ -467,7 +467,7 @@ def visualize_optimal_compositions(csv_file):
     plt.savefig('optimal_compositions.png')
     logging.info('Visualization saved as optimal_compositions.png')
 
-def highest_confidence_samples(input_csv, adata, train_sizes, device, global_label_encoder, dataset_name):
+def highest_confidence_samples(input_csv, adata, train_sizes, device, global_label_encoder, dataset_name, label_key='CellType'):
     high_conf_csv = dataset_name + ' high_confidence_compositions.csv'
 
     logging.info('Starting processing of highest confidence samples...')
@@ -522,7 +522,7 @@ def highest_confidence_samples(input_csv, adata, train_sizes, device, global_lab
         
         # Train and get test loss
         test_loss = train_and_evaluate_mlp(
-            adata_train, adata_test, label_key='CellType', label_encoder=global_label_encoder,
+            adata_train, adata_test, label_key, label_encoder=global_label_encoder,
             num_classes=len(global_label_encoder.classes_),  # Added num_classes
             epoch_num=30, device=device, batch_size=64
         )
