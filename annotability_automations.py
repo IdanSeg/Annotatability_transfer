@@ -1,6 +1,7 @@
 import warnings
 
 warnings.filterwarnings("ignore")
+import os
 import sys
 print(sys.executable)
 print('\n'.join(sys.path))
@@ -45,14 +46,15 @@ f = io.StringIO()
 
 def train_and_get_prob_list(adata, label_key, epoch_num, device, batch_size):
     logging.info('Training the model...')
-    with contextlib.redirect_stdout(f):
-        prob_list = models.follow_training_dyn_neural_net(
-            adata,
-            label_key=label_key,
-            iterNum=epoch_num,
-            device=device,
-            batch_size=batch_size
-        )
+    with open(os.devnull, 'w') as devnull:
+        with contextlib.redirect_stdout(devnull):
+            prob_list = models.follow_training_dyn_neural_net(
+                adata,
+                label_key=label_key,
+                iterNum=epoch_num,
+                device=device,
+                batch_size=batch_size
+            )
     logging.info('Training complete.')
     return prob_list
 
