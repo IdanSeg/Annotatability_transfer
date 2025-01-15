@@ -108,12 +108,20 @@ def assign_annotations(adata, all_conf, all_var, cutoff_conf, cutoff_var, annota
     logging.info('Annotation assignment complete.')
     return adata
 
-def annotate(adata, label_key, epoch_num, device, swap_probability, percentile, batch_size):
+def annotate(dataset_name, adata, label_key, epoch_num, device, swap_probability, percentile, batch_size):
     logging.info('Starting annotation process...')
-    prob_list = train_and_get_prob_list(adata, label_key=label_key, epoch_num=epoch_num, device=device, batch_size=batch_size)
-    all_conf, all_var = calculate_confidence_and_variability(prob_list, n_obs=adata.n_obs, epoch_num=epoch_num)
-    conf_cutoff, var_cutoff = find_cutoffs(adata, label_key, device, probability=swap_probability, percentile=percentile, epoch_num=epoch_num)
-    adata = assign_annotations(adata, all_conf, all_var, conf_cutoff, var_cutoff, annotation_col='Annotation')
+    
+    if os.path.exists(dataset_name + '_annotated.h5ad'):
+        adata = sc.read(dataset_name + '_annotated.h5ad')
+        logging.info('Loaded existing annotated dataset.')
+    
+    else:
+        prob_list = train_and_get_prob_list(adata, label_key=label_key, epoch_num=epoch_num, device=device, batch_size=batch_size)
+        all_conf, all_var = calculate_confidence_and_variability(prob_list, n_obs=adata.n_obs, epoch_num=epoch_num)
+        conf_cutoff, var_cutoff = find_cutoffs(adata, label_key, device, probability=swap_probability, percentile=percentile, epoch_num=epoch_num)
+        adata = assign_annotations(adata, all_conf, all_var, conf_cutoff, var_cutoff, annotation_col='Annotation')
+        adata.write(dataset_name + '_annotated.h5ad')
+    
     group_counts = adata.obs['Annotation'].value_counts()
     logging.info('Annotation process complete.')
     logging.info('Group counts: %s', group_counts.to_dict())
@@ -469,7 +477,7 @@ def visualize_optimal_compositions(csv_file):
     plt.savefig('optimal_compositions.png')
     logging.info('Visualization saved as optimal_compositions.png')
 
-def highest_confidence_samples(input_csv, adata, train_sizes, device, global_label_encoder, dataset_name, label_key='CellType'):
+def highest_confidence_samples(input_csv, adata, train_sizes, device, global_label_encoder, dataset_name, label_key):
     high_conf_csv = dataset_name + ' high_confidence_compositions.csv'
 
     logging.info('Starting processing of highest confidence samples...')

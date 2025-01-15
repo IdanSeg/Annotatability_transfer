@@ -49,12 +49,12 @@ if dataset_name == 'pbmc':
     epoch_num_annot = 150
     epoch_num_composition = 30
     swap_probability = 0.1
-    percentile = 25
+    percentile = 90
     batch_size = 64
 
-adata, group_counts = annotate(adata, label_key, epoch_num_annot, device, swap_probability, percentile, batch_size)
+adata, group_counts = annotate(dataset_name, adata, label_key, epoch_num_annot, device, swap_probability, percentile, batch_size)
 best_compositions, label_encoder = find_optimal_compositions(dataset_name, adata, label_key, group_counts, train_sizes, 
                         repeats_per_size, dataset_name+".csv", device, epoch_num_composition, batch_size)
 visualize_optimal_compositions(dataset_name+".csv")
-highest_confidence_samples(dataset_name+".csv", adata, train_sizes, device, label_encoder, dataset_name)
+highest_confidence_samples(dataset_name+".csv", adata, train_sizes, device, label_encoder, dataset_name, label_key)
 
