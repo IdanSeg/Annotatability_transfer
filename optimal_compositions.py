@@ -8,8 +8,8 @@ from pbmc import PBMC
 
 ### GLOBAL PARAMETERS ###
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-repeats_per_size = 3
-train_sizes = [500]
+repeats_per_size = 12
+train_sizes = [500, 1000, 2000, 4000, 8000, 16000]
 ### END GLOBAL PARAMETERS ###
 
 # Read the data argument from the command line
@@ -46,8 +46,8 @@ if dataset_name == 'pbmc':
     dataset.load_data()
     adata = dataset.preprocess_data()
     label_key = 'cell_type'
-    epoch_num_annot = 70
-    epoch_num_composition = 20
+    epoch_num_annot = 30
+    epoch_num_composition = 10
     swap_probability = 0.1
     percentile = 90
     batch_size = 64
