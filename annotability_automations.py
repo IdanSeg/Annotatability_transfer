@@ -367,6 +367,7 @@ def find_optimal_compositions(
                     new_row_df = pd.DataFrame([new_row])
                     results_df = pd.concat([results_df, new_row_df], ignore_index=True)
                     results_df.to_csv(csv_file, index=False)
+                logging.info(f"Completed Run {run} out of {repeats_per_size} for Train_Size={T}")
     logging.info('find_optimal_compositions completed for dataset: %s', dataset_name)
     return best_compositions, label_encoder
 

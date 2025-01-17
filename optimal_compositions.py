@@ -52,6 +52,18 @@ if dataset_name == 'pbmc':
     percentile = 90
     batch_size = 64
 
+if dataset_name == 'pbmc_healthy':
+    dataset = PBMC()
+    dataset.load_data()
+    adata = dataset.preprocess_data()
+    adata = dataset.filter_by_health(clear_sick=True)
+    label_key = 'cell_type'
+    epoch_num_annot = 50
+    epoch_num_composition = 25
+    swap_probability = 0.1
+    percentile = 90
+    batch_size = 64
+
 adata, group_counts = annotate(dataset_name, adata, label_key, epoch_num_annot, device, swap_probability, percentile, batch_size)
 best_compositions, label_encoder = find_optimal_compositions(dataset_name, adata, label_key, group_counts, train_sizes, 
                         repeats_per_size, dataset_name+".csv", device, epoch_num_composition, batch_size)
