@@ -624,7 +624,7 @@ def train_validate_and_evaluate(
     def validate_model(net, criterion):
         logging.debug('Validating model...')
         tensor_x_validation, tensor_y_validation = dataset_manager.prepare_data(
-            dataset=validation_dataset, label_key=label_key, label_encoder=label_encoder, device=device
+            validation_dataset, label_key=label_key, label_encoder=label_encoder, device=device
         )
         net.eval()
         with torch.no_grad():
