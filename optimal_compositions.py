@@ -9,7 +9,7 @@ from pbmc import PBMC
 ### GLOBAL PARAMETERS ###
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 repeats_per_size = 12
-train_sizes = [500, 1000, 2000]
+train_sizes = [500, 1000]
 ### END GLOBAL PARAMETERS ###
 
 # Read the data argument from the command line

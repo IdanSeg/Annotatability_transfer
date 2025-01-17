@@ -2,6 +2,7 @@
 from dataset import Dataset
 import scanpy as sc
 import squidpy as sq
+import logging
 FILE_PATH = "/cs/labs/ravehb/idan724/annotatability/datasets/pbmc/dfb51f99-a306-4daa-9f4a-afe7de65bbf2.h5ad"
 HEALTHY_LABEL = 'normal'
 HEALTH_COLUMN = 'disease'
@@ -25,8 +26,8 @@ class PBMC(Dataset):
         if HEALTHY_LABEL not in self.adata_pbmc[HEALTH_COLUMN].unique():
             raise ValueError("HEALTHY_LABEL label not found in HEALTH_COLUMN column.")
 
-        # print all unique values in HEALTH_COLUMN
-        print(f"Unique values in {HEALTH_COLUMN} column: {self.adata_pbmc.obs[HEALTH_COLUMN].unique()}")
+        # print all unique values in HEALTH_COLUMN as a log
+        logging.debug(f"Unique values in {HEALTH_COLUMN} column: {self.adata_pbmc[HEALTH_COLUMN].unique()})")
 
         filter_condition = self.adata_pbmc.obs[HEALTH_COLUMN] == HEALTHY_LABEL if clear_sick else self.adata_pbmc.obs[HEALTH_COLUMN] != HEALTHY_LABEL
         filtered_adata = self.adata_pbmc[filter_condition].copy()
