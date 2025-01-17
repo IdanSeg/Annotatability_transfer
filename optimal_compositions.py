@@ -65,10 +65,12 @@ if dataset_name == 'pbmc_healthy':
     percentile = 90
     batch_size = 64
 
-general_info(adata)
+format_manager = AnnDataManager()
+
+format_manager.general_info(adata)
 adata, group_counts = annotate(dataset_name, adata, label_key, epoch_num_annot, device, swap_probability, percentile, batch_size)
 best_compositions, label_encoder = find_optimal_compositions(dataset_name, adata, label_key, group_counts, train_sizes, 
                         repeats_per_size, device, epoch_num_composition, batch_size)
 visualize_optimal_compositions(dataset_name)
 highest_confidence_samples(adata, train_sizes, device, label_encoder, dataset_name, label_key)
-comp_opt_subset_to_not(dataset_name, adata, label_key, group_counts, device, epoch_num_composition, epoch_num_annot, batch_size, "anndata_manager")
+comp_opt_subset_to_not(dataset_name, adata, label_key, group_counts, device, epoch_num_composition, epoch_num_annot, batch_size, format_manager)

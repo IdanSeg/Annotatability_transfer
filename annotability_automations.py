@@ -777,7 +777,7 @@ def comp_opt_subset_to_not(
     optimal_run_details = []
 
     for i in range(repeats_per_size):
-        optimal_train_indices = get_subset_composition(adata, group_counts)
+        _, optimal_train_indices = get_subset_composition(adata, group_counts)
         optimal_train_indices = np.array(optimal_train_indices)
 
         test_loss_opt = run_single_subset_evaluation(optimal_train_indices, adata, dataset_manager, label_key, epoch_num_subset, device, batch_size)
