@@ -76,6 +76,3 @@ def general_info(adata):
     logging.info(f'Number of unique labels: {len(adata.obs[adata.obs.columns[0]].unique())}')
     logging.info(f'Label distribution:')
     logging.info(adata.obs[adata.obs.columns[0]].value_counts())
-    logging.info(f'Number of batches: {adata.n_batches}')
-    logging.info(f'Batch distribution:')
-    logging.info(adata.obs['batch'].value_counts())
