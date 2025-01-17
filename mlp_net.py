@@ -46,6 +46,7 @@ def train_and_evaluate_mlp(
     epoch_num,
     device,
     batch_size,
+    format_manager,
     run_after_epoch=None
 ):
     """
@@ -73,7 +74,7 @@ def train_and_evaluate_mlp(
 
     # Prepare training data
     logging.debug('Preparing training data...')
-    tensor_x_train, tensor_y_train = prepare_data(
+    tensor_x_train, tensor_y_train = format_manager.prepare_data(
         adata=adata_train, label_key=label_key, label_encoder=label_encoder, device=device
     )
     train_dataset = TensorDataset(tensor_x_train, tensor_y_train)
@@ -95,7 +96,7 @@ def train_and_evaluate_mlp(
     if adata_test:
         # Prepare test data
         logging.debug('Preparing test data...')
-        tensor_x_test, tensor_y_test = prepare_data(
+        tensor_x_test, tensor_y_test = format_manager.prepare_data(
             adata=adata_test, label_key=label_key, label_encoder=label_encoder, device=device
         )
 
