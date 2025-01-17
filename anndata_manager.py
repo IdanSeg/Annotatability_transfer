@@ -118,3 +118,6 @@ class AnnDataManager:
         logging.info('General information about the dataset:')
         logging.info(f'Number of cells: {adata.n_obs}')
         logging.info(f'Number of features: {adata.n_vars}')
+
+    def get_feature_size(adata):
+        return adata.n_vars
