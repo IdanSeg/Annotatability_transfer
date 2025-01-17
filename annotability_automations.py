@@ -141,6 +141,7 @@ def find_optimal_compositions(
     device,
     epoch_num,
     batch_size,
+    format_manager,
     model="mlp"
 ):
     """
@@ -321,6 +322,7 @@ def find_optimal_compositions(
                         num_classes=num_classes,
                         epoch_num=epoch_num, 
                         device=device, 
+                        format_manager=format_manager,
                         batch_size=batch_size
                     )
 
