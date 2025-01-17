@@ -23,24 +23,24 @@ class PBMC(Dataset):
         if HEALTH_COLUMN not in self.adata_pbmc.obs.columns:
             raise KeyError("HEALTH_COLUMN column not found in adata_full.obs.")
 
-        if HEALTHY_LABEL not in self.adata_pbmc[HEALTH_COLUMN].unique():
+        if HEALTHY_LABEL not in self.adata_pbmc.obs[HEALTH_COLUMN].unique():
             raise ValueError("HEALTHY_LABEL label not found in HEALTH_COLUMN column.")
 
         # print all unique values in HEALTH_COLUMN as a log
-        logging.info(f"Unique values in {HEALTH_COLUMN} column: {self.adata_pbmc[HEALTH_COLUMN].unique()})")
+        logging.info(f"Unique values in {HEALTH_COLUMN} column: {self.adata_pbmc.obs[HEALTH_COLUMN].unique()})")
 
-        # filter_condition = self.adata_pbmc.obs[HEALTH_COLUMN] == HEALTHY_LABEL if clear_sick else self.adata_pbmc.obs[HEALTH_COLUMN] != HEALTHY_LABEL
-        # filtered_adata = self.adata_pbmc[filter_condition].copy()
+        filter_condition = self.adata_pbmc.obs[HEALTH_COLUMN] == HEALTHY_LABEL if clear_sick else self.adata_pbmc.obs[HEALTH_COLUMN] != HEALTHY_LABEL
+        filtered_adata = self.adata_pbmc[filter_condition].copy()
         
-        # if filtered_adata.n_obs == 0:
-        #     raise ValueError(f"No {HEALTHY_LABEL if clear_sick else 'sick'} cells found after filtering.")
+        if filtered_adata.n_obs == 0:
+            raise ValueError(f"No {HEALTHY_LABEL if clear_sick else 'sick'} cells found after filtering.")
 
-        # self.adata_pbmc = filtered_adata
+        self.adata_pbmc = filtered_adata
 
-        # status = "healthy" if clear_sick else "sick"
-        # print(f"Filtered {status} cells using HEALTH_COLUMN.")
+        status = "healthy" if clear_sick else "sick"
+        print(f"Filtered {status} cells using HEALTH_COLUMN.")
 
-        # if normalize_again:
-        #     return self.preprocess_data()
+        if normalize_again:
+            return self.preprocess_data()
         
         return self.adata_pbmc
