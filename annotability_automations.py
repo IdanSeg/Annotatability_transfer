@@ -21,6 +21,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from mlp_net import *
+from anndata_manager import *
 # from scTab_net import *
 
 model_runners = {
@@ -583,3 +584,90 @@ def highest_confidence_samples(input_csv, adata, train_sizes, device, global_lab
     plt.grid(True)
     plt.savefig('comparison_plot.png')
     logging.info('Comparison plot saved as comparison_plot.png')
+
+def train_validate_and_evaluate(
+    train_dataset,
+    validation_dataset,
+    test_dataset,
+    dataset_manager,
+    label_key,
+    label_encoder,
+    num_classes,
+    epoch_num,
+    device,
+    batch_size
+):
+    """
+    Trains, validates, and evaluates a neural network model, selecting the best-performing epoch.
+
+    Parameters:
+    - train_dataset: Training dataset.
+    - validation_dataset: Validation dataset.
+    - test_dataset: Testing dataset.
+    - dataset_manager: A manager object responsible for handling dataset-specific logic.
+    - label_key (str): Key in the dataset containing the labels.
+    - label_encoder (LabelEncoder): Fitted LabelEncoder instance.
+    - num_classes (int): Number of unique classes in the dataset.
+    - epoch_num (int): Number of training epochs.
+    - device (str or torch.device): Device to run the training on ('cpu' or 'cuda').
+    - batch_size (int): Batch size for training.
+
+    Returns:
+    - best_epoch (int): The epoch with the highest validation performance.
+    - test_loss (float): Loss on the test dataset using the best model.
+    """
+    best_epoch = -1
+    best_validation_loss = float('inf')
+    best_model_state = None
+
+    def validate_model(net, criterion):
+        logging.debug('Validating model...')
+        tensor_x_validation, tensor_y_validation = dataset_manager.prepare_data(
+            dataset=validation_dataset, label_key=label_key, label_encoder=label_encoder, device=device
+        )
+        net.eval()
+        with torch.no_grad():
+            outputs_validation = net(tensor_x_validation)
+            validation_loss = criterion(outputs_validation, tensor_y_validation).item()
+        return validation_loss
+
+    def after_epoch(net, epoch):
+        nonlocal best_epoch, best_validation_loss, best_model_state
+        validation_loss = validate_model(net, nn.CrossEntropyLoss())
+        logging.debug('Epoch %d validation loss: %.4f', epoch + 1, validation_loss)
+        if validation_loss < best_validation_loss:
+            best_validation_loss = validation_loss
+            best_epoch = epoch
+            best_model_state = net.state_dict()
+
+    # Train and evaluate
+    logging.debug('Starting training and validation process...')
+    _ = train_and_evaluate_mlp(
+        adata_train=train_dataset,
+        adata_test=None,
+        label_key=label_key,
+        label_encoder=label_encoder,
+        num_classes=num_classes,
+        epoch_num=epoch_num,
+        device=device,
+        batch_size=batch_size,
+        run_after_epoch=after_epoch
+    )
+
+    # Load the best model state
+    logging.debug('Loading best model state from epoch %d', best_epoch + 1)
+    net = models.Net(dataset_manager.get_feature_size(train_dataset), output_size=num_classes)
+    net.to(device)
+    net.load_state_dict(best_model_state)
+
+    # Test evaluation
+    logging.debug('Evaluating on test dataset...')
+    tensor_x_test, tensor_y_test = dataset_manager.prepare_data(
+        dataset=test_dataset, label_key=label_key, label_encoder=label_encoder, device=device
+    )
+    net.eval()
+    with torch.no_grad():
+        outputs_test = net(tensor_x_test)
+        test_loss = nn.CrossEntropyLoss()(outputs_test, tensor_y_test).item()
+
+    return best_epoch, test_loss
