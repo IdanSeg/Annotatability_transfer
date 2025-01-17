@@ -5,6 +5,7 @@ from dataset import *
 from merfish import Merfish
 from minimal import Minimal
 from pbmc import PBMC
+from anndata_manager import *
 
 ### GLOBAL PARAMETERS ###
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -64,6 +65,7 @@ if dataset_name == 'pbmc_healthy':
     percentile = 90
     batch_size = 64
 
+general_info(adata)
 adata, group_counts = annotate(dataset_name, adata, label_key, epoch_num_annot, device, swap_probability, percentile, batch_size)
 best_compositions, label_encoder = find_optimal_compositions(dataset_name, adata, label_key, group_counts, train_sizes, 
                         repeats_per_size, dataset_name+".csv", device, epoch_num_composition, batch_size)

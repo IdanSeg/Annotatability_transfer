@@ -62,3 +62,20 @@ def prepare_data(adata, label_key, label_encoder, device):
     tensor_y = torch.LongTensor(np.argmax(one_hot_labels, axis=1)).to(device)
     logging.debug('Data preparation complete.')
     return tensor_x, tensor_y
+
+def general_info(adata):
+    """
+    Prints general information about the AnnData object via logging.
+
+    Parameters:
+    - adata (AnnData): Dataset to print information about.
+    """
+    logging.info('General information about the dataset:')
+    logging.info(f'Number of cells: {adata.n_obs}')
+    logging.info(f'Number of features: {adata.n_vars}')
+    logging.info(f'Number of unique labels: {len(adata.obs[adata.obs.columns[0]].unique())}')
+    logging.info(f'Label distribution:')
+    logging.info(adata.obs[adata.obs.columns[0]].value_counts())
+    logging.info(f'Number of batches: {adata.n_batches}')
+    logging.info(f'Batch distribution:')
+    logging.info(adata.obs['batch'].value_counts())
