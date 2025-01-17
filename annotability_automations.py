@@ -530,7 +530,7 @@ def highest_confidence_samples(adata, train_sizes, device, global_label_encoder,
         test_loss = train_and_evaluate_mlp(
             adata_train, adata_test, label_key, label_encoder=global_label_encoder,
             num_classes=len(global_label_encoder.classes_),  # Added num_classes
-            epoch_num=30, device=device, batch_size=64
+            epoch_num=30, device=device, batch_size=64, format_manager=AnnDataManager()
         )
         
         # Save the result using direct indexing (instead of append)
@@ -646,6 +646,7 @@ def train_validate_and_evaluate(
         epoch_num=epoch_num,
         device=device,
         batch_size=batch_size,
+        format_manager=dataset_manager,
         run_after_epoch=after_epoch
     )
 
