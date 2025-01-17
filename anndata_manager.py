@@ -119,5 +119,5 @@ class AnnDataManager:
         logging.info(f'Number of cells: {adata.n_obs}')
         logging.info(f'Number of features: {adata.n_vars}')
 
-    def get_feature_size(adata):
+    def get_feature_size(self, adata):
         return adata.n_vars
