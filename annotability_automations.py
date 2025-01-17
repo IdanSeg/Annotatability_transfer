@@ -271,7 +271,8 @@ def find_optimal_compositions(
                 results_df = pd.concat([results_df, new_row_df], ignore_index=True)
                 results_df.to_csv(csv_file, index=False)
                 continue
-
+            
+            logging.info(f"Found {len(compositions)} valid compositions for Train Size={T}, starting runs...")
             for run in range(current_runs + 1, repeats_per_size + 1):
                 min_loss = float('inf')
                 best_comp = None
@@ -329,6 +330,8 @@ def find_optimal_compositions(
                         best_comp = comp
                         best_train_indices = train_indices.copy()
 
+                    logging.info(f"Run {run} out of {repeats_per_size} for Train_Size={T}: Easy={e}, Ambiguous={a}, Hard={h}, Test Loss={test_loss}")
+
                 if best_comp is not None:
                     easy, ambiguous, hard = best_comp
 
@@ -355,6 +358,7 @@ def find_optimal_compositions(
                     new_row_df = pd.DataFrame([new_row])
                     results_df = pd.concat([results_df, new_row_df], ignore_index=True)
                     results_df.to_csv(csv_file, index=False)
+                    logging.info(f"Run {run} out of {repeats_per_size} for Train_Size={T}: Easy={easy}, Ambiguous={ambiguous}, Hard={hard}, Test Loss={min_loss}")
                 else:
                     logging.warning(f"No valid compositions found for {dataset_name} Train_Size={T} (Run {run})")
                     # Save an entry indicating no valid compositions
