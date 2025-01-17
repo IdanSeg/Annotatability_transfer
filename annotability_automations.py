@@ -22,7 +22,10 @@ from tqdm import tqdm
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from mlp_net import *
 from anndata_manager import *
+import csv
+
 # from scTab_net import *
+#TODO: get rid of all label_encoder as inputs and use the dedicated function in the manager
 
 model_runners = {
     "mlp":train_and_evaluate_mlp, 
@@ -135,7 +138,6 @@ def find_optimal_compositions(
     group_counts,
     train_sizes,
     repeats_per_size,
-    csv_file,
     device,
     epoch_num,
     batch_size,
@@ -151,7 +153,6 @@ def find_optimal_compositions(
     - group_counts (dict): Dictionary containing counts for 'Easy-to-learn', 'Ambiguous', 'Hard-to-learn'.
     - train_sizes (list of int): List of training set sizes to experiment with.
     - repeats_per_size (int): Number of repeats for each training size.
-    - csv_file (str): Filename to save/load the results.
     - device (torch.device): The device to run the training on ('cpu' or 'cuda').
     - epoch_num (int): Number of training epochs.
     - batch_size (int): Batch size for training.
@@ -160,6 +161,7 @@ def find_optimal_compositions(
     - best_compositions (dict): Dictionary containing the best compositions and their corresponding test losses.
     """
     logging.info('Starting find_optimal_compositions for dataset: %s', dataset_name)
+    csv_file = dataset_name + '_optimal_compositions.csv'
 
     # Load existing results from CSV or create an empty DataFrame
     try:
@@ -372,18 +374,9 @@ def find_optimal_compositions(
     logging.info('find_optimal_compositions completed for dataset: %s', dataset_name)
     return best_compositions, label_encoder
 
-'''
-    - **Workflow:**
-        1. **Load Existing Results:** Checks if the CSV file exists to load previous results; otherwise, initializes an empty DataFrame.
-        2. **Iterate Over Training Sizes:** For each specified training size, it checks how many runs have been completed and determines the remaining runs needed.
-        3. **Sampling Test Indices:** Randomly selects test indices ensuring reproducibility and avoiding overlaps with training data.
-        4. **Generate Compositions:** Creates possible compositions of 'Easy', 'Ambiguous', and 'Hard' samples that sum up to the training size.
-        5. **Training Loop:** For each run and each possible composition, it trains the model and records the test loss.
-        6. **Logging and Saving Results:** Updates the `best_compositions` dictionary and saves the results to the CSV file.
+def visualize_optimal_compositions(dataset_name):
+    csv_file = dataset_name + '_optimal_compositions.csv'
 
-'''
-
-def visualize_optimal_compositions(csv_file):
     logging.info('Starting visualization of optimal compositions...')
     # Load the compositions from the CSV file
     try:
@@ -479,7 +472,8 @@ def visualize_optimal_compositions(csv_file):
     plt.savefig('optimal_compositions.png')
     logging.info('Visualization saved as optimal_compositions.png')
 
-def highest_confidence_samples(input_csv, adata, train_sizes, device, global_label_encoder, dataset_name, label_key):
+def highest_confidence_samples(adata, train_sizes, device, global_label_encoder, dataset_name, label_key):
+    input_csv = dataset_name + '.csv'
     high_conf_csv = dataset_name + ' high_confidence_compositions.csv'
 
     logging.info('Starting processing of highest confidence samples...')
@@ -615,6 +609,7 @@ def train_validate_and_evaluate(
     Returns:
     - best_epoch (int): The epoch with the highest validation performance.
     - test_loss (float): Loss on the test dataset using the best model.
+    - best_model_state (dict): State dictionary of the best model.
     """
     best_epoch = -1
     best_validation_loss = float('inf')
@@ -670,4 +665,234 @@ def train_validate_and_evaluate(
         outputs_test = net(tensor_x_test)
         test_loss = nn.CrossEntropyLoss()(outputs_test, tensor_y_test).item()
 
-    return best_epoch, test_loss
+    return best_epoch, test_loss, best_model_state
+
+def get_subset_composition(adata, group_counts):
+
+    # Get the indices of each group
+    easy_indices = adata.obs.index[adata.obs['Annotation'] == 'Easy-to-learn'].tolist()
+    ambiguous_indices = adata.obs.index[adata.obs['Annotation'] == 'Ambiguous'].tolist()
+    hard_indices = adata.obs.index[adata.obs['Annotation'] == 'Hard-to-learn'].tolist()
+
+    e = group_counts.get('Easy-to-learn', 0)
+    a = group_counts.get('Ambiguous', 0)
+    h = group_counts.get('Hard-to-learn', 0)
+
+    train_easy_indices = random.sample(easy_indices, e) if e > 0 else []
+    train_ambiguous_indices = random.sample(ambiguous_indices, a) if a > 0 else []
+    train_hard_indices = random.sample(hard_indices, h) if h > 0 else []
+    train_indices = train_easy_indices + train_ambiguous_indices + train_hard_indices
+
+    # Ensure total train samples equal T
+    if len(train_indices) != sum([e, a, h]):
+        raise ValueError('Train size mismatch.')
+    
+    # Create training and testing datasets
+    return adata[train_indices].copy(), train_indices
+
+def run_single_subset_evaluation(train_indices, adata, dataset_manager, label_key, epoch_num, device, batch_size):
+    """
+    Given a set of training indices:
+        - Remove them from 'all_indices' to define leftover
+        - From leftover, pick val_size_sub (10%) and test_size_sub (20%)
+        - Train a model, return test_loss
+    """
+    subset_size = len(train_indices)
+    val_size_sub = int(0.1 * subset_size)
+    test_size_sub = int(0.2 * subset_size)
+
+    all_indices = np.arange(adata.n_obs)
+    leftover_indices = np.setdiff1d(all_indices, train_indices)
+
+    # Shuffle leftover to pick validation/test consistently
+    np.random.shuffle(leftover_indices)
+
+    if len(leftover_indices) < (val_size_sub + test_size_sub):
+        raise ValueError(
+            f"Not enough leftover indices to form val({val_size_sub}) and "
+            f"test({test_size_sub}) after picking a subset of size {subset_size}."
+        )
+
+    val_indices_sub = leftover_indices[:val_size_sub]
+    test_indices_sub = leftover_indices[val_size_sub: val_size_sub + test_size_sub]
+
+    # Build actual AnnData subsets
+    train_dataset = dataset_manager.subset(adata, train_indices)
+    val_dataset   = dataset_manager.subset(adata, val_indices_sub)
+    test_dataset  = dataset_manager.subset(adata, test_indices_sub)
+
+    # Retrieve label encoder
+    label_encoder = dataset_manager.getLabelEncoder(adata, label_key)
+
+    # Train and evaluate
+    _, test_loss, _ = train_validate_and_evaluate(
+        train_dataset=train_dataset,
+        validation_dataset=val_dataset,
+        test_dataset=test_dataset,
+        dataset_manager=dataset_manager,
+        label_key=label_key,
+        label_encoder=label_encoder,
+        num_classes=len(label_encoder.classes_),
+        epoch_num=epoch_num,
+        device=device,
+        batch_size=batch_size
+    )
+    return test_loss
+
+def comp_opt_subset_to_not(
+    dataset_name,
+    adata,
+    label_key,
+    group_counts,
+    device,
+    epoch_num_subset,
+    epoch_num_full,
+    batch_size,
+    dataset_manager,
+    repeats_per_size=12,
+    model="mlp",
+    random_seed=42
+):
+    """
+    This function:
+      1) Runs multiple passes (repeats_per_size) for both 'optimal' and 'random' subsets:
+         - Each run re-generates a training subset (optimal vs. random) of the same size,
+           then splits leftover into val (10%) and test (20%) of that subset size.
+         - Test loss is recorded for each run.
+         - The final 'optimal' and 'random' test losses are averaged across repeats_per_size runs.
+      2) Performs a single pass with the 'full' dataset (70/10/20 split).
+      3) Logs and writes all results to CSV with columns:
+         ['train_indices', 'test_loss', 'type'].
+         The 'type' field is one of 'optimal', 'random', or 'full'.
+      4) Logs the average test loss of 'optimal' and 'random' runs,
+         and the single test loss for 'full'.
+    """
+
+    np.random.seed(random_seed)
+
+    # ------------------------------------------------------------------
+    # 1) REPEATED RUNS: OPTIMAL
+    # ------------------------------------------------------------------
+    optimal_losses = []
+    optimal_run_details = []
+
+    for i in range(repeats_per_size):
+        optimal_train_indices = get_subset_composition(adata, group_counts)
+        optimal_train_indices = np.array(optimal_train_indices)
+
+        test_loss_opt = run_single_subset_evaluation(optimal_train_indices, adata, dataset_manager, label_key, epoch_num_subset, device, batch_size)
+        optimal_losses.append(test_loss_opt)
+        
+        # Store for CSV
+        optimal_run_details.append({
+            "type": "optimal",
+            "test_loss": test_loss_opt,
+            "train_indices": optimal_train_indices.tolist(),
+        })
+
+        logging.info(f"[Optimal run {i+1}/{repeats_per_size}] test_loss = {test_loss_opt:.4f}")
+
+    avg_optimal_loss = float(np.mean(optimal_losses))
+    logging.info(f"Average test loss for 'optimal' (over {repeats_per_size} runs): {avg_optimal_loss:.4f}")
+
+    # ------------------------------------------------------------------
+    # 2) REPEATED RUNS: RANDOM
+    # ------------------------------------------------------------------
+
+    subset_size = len(optimal_run_details[0]["train_indices"])
+
+    random_losses = []
+    random_run_details = []
+
+    for i in range(repeats_per_size):
+        # Sample random training subset of the same size
+        all_indices = np.arange(adata.n_obs)
+        rand_train_indices = np.random.choice(all_indices, size=subset_size, replace=False)
+
+        test_loss_random = run_single_subset_evaluation(rand_train_indices, adata, dataset_manager, label_key, epoch_num_subset, device, batch_size)
+        random_losses.append(test_loss_random)
+
+        # Store for CSV
+        random_run_details.append({
+            "type": "random",
+            "test_loss": test_loss_random,
+            "train_indices": rand_train_indices.tolist()
+        })
+
+        logging.info(f"[Random run {i+1}/{repeats_per_size}] test_loss = {test_loss_random:.4f}")
+
+    avg_random_loss = float(np.mean(random_losses))
+    logging.info(f"Average test loss for 'random' (over {repeats_per_size} runs): {avg_random_loss:.4f}")
+
+    # ------------------------------------------------------------------
+    # 3) SINGLE RUN: FULL DATASET (70/10/20 split)
+    # ------------------------------------------------------------------
+    n_obs = adata.n_obs
+    val_size_full = int(0.1 * n_obs)
+    test_size_full = int(0.2 * n_obs)
+
+    all_indices_full = np.arange(n_obs)
+    np.random.shuffle(all_indices_full)
+
+    val_indices_full = all_indices_full[:val_size_full]
+    test_indices_full = all_indices_full[val_size_full: val_size_full + test_size_full]
+    train_indices_full = all_indices_full[val_size_full + test_size_full:]
+
+    # Prepare the full subsets
+    full_train_dataset = dataset_manager.subset(adata, train_indices_full)
+    full_val_dataset   = dataset_manager.subset(adata, val_indices_full)
+    full_test_dataset  = dataset_manager.subset(adata, test_indices_full)
+
+    # One pass with the "full" approach
+    label_encoder = dataset_manager.getLabelEncoder(adata, label_key)
+    _, test_loss_full, _ = train_validate_and_evaluate(
+        train_dataset=full_train_dataset,
+        validation_dataset=full_val_dataset,
+        test_dataset=full_test_dataset,
+        dataset_manager=dataset_manager,
+        label_key=label_key,
+        label_encoder=label_encoder,
+        num_classes=len(label_encoder.classes_),
+        epoch_num=epoch_num_full,
+        device=device,
+        batch_size=batch_size
+    )
+
+    logging.info(f"[Full] test_loss = {test_loss_full:.4f}")
+
+    # ------------------------------------------------------------------
+    # 4) WRITE RESULTS TO CSV
+    # ------------------------------------------------------------------
+    csv_filename = f"{dataset_name}_{group_counts}_eval.csv"
+    results = []
+
+    # Add all 'optimal' runs
+    results.extend(optimal_run_details)
+
+    # Add all 'random' runs
+    results.extend(random_run_details)
+
+    # Add single 'full' run
+    results.append({
+        "type": "full",
+        "test_loss": test_loss_full,
+        "train_indices": train_indices_full.tolist()
+    })
+
+    with open(csv_filename, mode='w', newline='') as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=["type",  "test_loss", "train_indices"])
+        writer.writeheader()
+        for row in results:
+            writer.writerow(row)
+
+    logging.info(f"Results written to {csv_filename}")
+
+    # ------------------------------------------------------------------
+    # 5) FINAL LOGGING
+    # ------------------------------------------------------------------
+    logging.info(
+        "Summary of results: "
+        f"Optimal test loss (avg of {repeats_per_size}) = {avg_optimal_loss:.4f}, "
+        f"Random test loss (avg of {repeats_per_size}) = {avg_random_loss:.4f}, "
+        f"Full test loss (single run) = {test_loss_full:.4f}"
+    )

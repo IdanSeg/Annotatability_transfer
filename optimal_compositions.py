@@ -68,7 +68,7 @@ if dataset_name == 'pbmc_healthy':
 general_info(adata)
 adata, group_counts = annotate(dataset_name, adata, label_key, epoch_num_annot, device, swap_probability, percentile, batch_size)
 best_compositions, label_encoder = find_optimal_compositions(dataset_name, adata, label_key, group_counts, train_sizes, 
-                        repeats_per_size, dataset_name+".csv", device, epoch_num_composition, batch_size)
-visualize_optimal_compositions(dataset_name+".csv")
-highest_confidence_samples(dataset_name+".csv", adata, train_sizes, device, label_encoder, dataset_name, label_key)
-
+                        repeats_per_size, device, epoch_num_composition, batch_size)
+visualize_optimal_compositions(dataset_name)
+highest_confidence_samples(adata, train_sizes, device, label_encoder, dataset_name, label_key)
+comp_opt_subset_to_not(dataset_name, adata, label_key, group_counts, device, epoch_num_composition, epoch_num_annot, batch_size, "anndata_manager")

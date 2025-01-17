@@ -5,6 +5,8 @@ import scipy.sparse as sp
 import logging
 from sklearn.preprocessing import LabelEncoder
 
+#TODO: get rid of label_encoder as input and use the one from the dataset
+
 def is_scipy_cs_sparse(matrix):
     """
     Checks if the given matrix is a scipy CSR sparse matrix.
@@ -63,6 +65,37 @@ def prepare_data(adata, label_key, label_encoder, device):
     logging.debug('Data preparation complete.')
     return tensor_x, tensor_y
 
+def getLabelEncoder(adata, label_key):
+    """
+    Returns a fitted LabelEncoder instance for the given dataset and label key.
+
+    Parameters:
+    - adata (AnnData): Dataset to encode labels for.
+    - label_key (str): Key in adata.obs containing the labels.
+
+    Returns:
+    - LabelEncoder: Fitted LabelEncoder instance.
+    """
+    label_encoder = LabelEncoder()
+    label_encoder.fit(adata.obs[label_key])
+    return label_encoder
+
+def subset(adata, indices):
+    """
+    Creates a subset of the given AnnData object based on specified indices.
+
+    Parameters:
+    - adata (AnnData): The original dataset to subset.
+    - indices (array-like): Indices of observations to include in the subset.
+
+    Returns:
+    - AnnData: A new AnnData object containing only the specified observations.
+    """
+    logging.debug(f'Creating subset with {len(indices)} indices.')
+    subset_adata = adata[indices].copy()
+    logging.debug('Subset creation complete.')
+    return subset_adata
+
 def general_info(adata):
     """
     Prints general information about the AnnData object via logging.
@@ -73,6 +106,3 @@ def general_info(adata):
     logging.info('General information about the dataset:')
     logging.info(f'Number of cells: {adata.n_obs}')
     logging.info(f'Number of features: {adata.n_vars}')
-    logging.info(f'Number of unique labels: {len(adata.obs[adata.obs.columns[0]].unique())}')
-    logging.info(f'Label distribution:')
-    logging.info(adata.obs[adata.obs.columns[0]].value_counts())
