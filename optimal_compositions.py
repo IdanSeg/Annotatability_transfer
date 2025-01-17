@@ -46,7 +46,7 @@ if dataset_name == 'pbmc':
     dataset.load_data()
     adata = dataset.preprocess_data()
     label_key = 'cell_type'
-    epoch_num_annot = 50
+    epoch_num_annot = 40
     epoch_num_composition = 20
     swap_probability = 0.1
     percentile = 90
