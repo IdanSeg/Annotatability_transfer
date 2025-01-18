@@ -28,14 +28,14 @@ format_manager = AnnDataManager()
 
 # format_manager.general_info(adata)
 adata, group_counts = annotate("pbmc_healthy", adata, label_key, epoch_num_annot, device, swap_probability, percentile, batch_size)
-# comp_opt_subset_to_not(
-#     "pbmc_healthy", adata, label_key, 
-#     {'Easy-to-learn':100, 'Ambiguous':100, 'Hard-to-learn':100}, 
-#     device, epoch_num_composition, epoch_num_annot, batch_size, 
-#     format_manager
-#     )
-
-create_comps_for_workers(
-    "pbmc_healthy", adata,
-    train_sizes=train_sizes, repeats_per_size=repeats_per_size,
+comp_opt_subset_to_not(
+    "pbmc_healthy", adata, label_key, 
+    {'Easy-to-learn':205, 'Ambiguous':295, 'Hard-to-learn':0}, 
+    device, epoch_num_composition, epoch_num_annot, batch_size, 
+    format_manager
     )
+
+# create_comps_for_workers(
+#     "pbmc_healthy", adata,
+#     train_sizes=train_sizes, repeats_per_size=repeats_per_size,
+#     )
