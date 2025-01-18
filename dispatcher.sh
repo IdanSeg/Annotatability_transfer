@@ -1,21 +1,42 @@
 #!/bin/bash
 
+# ----------------------
+# User Configuration
+# ----------------------
 CSV_FILE="pbmc_healthy_worker_jobs.csv"
 RESULTS_DIR="results"
 SCRIPT="worker_script.py"
-CHUNK_SIZE=5000
+CHUNK_SIZE=1000
 
-# Ensure results directory exists
+# This is the maximum number of total jobs you want to allow
+# in the queue (pending or running) at once. Adjust if needed.
+MAX_JOBS_IN_QUEUE=2
+
+# ----------------------
+# Script Logic
+# ----------------------
+
+# 1) Create results dir if it doesn't exist
 mkdir -p "$RESULTS_DIR"
 
+# 2) Count total data rows
 TOTAL_ROWS=$(($(wc -l < "$CSV_FILE") - 1))
+if [ "$TOTAL_ROWS" -le 0 ]; then
+    echo "Error: No data rows in $CSV_FILE."
+    exit 1
+fi
 
-# How many chunked job arrays do we need?
+# 3) Number of chunks needed
 NUM_CHUNKS=$(( (TOTAL_ROWS + CHUNK_SIZE - 1) / CHUNK_SIZE ))
+echo "Dispatching $NUM_CHUNKS chunks total for $TOTAL_ROWS rows..."
 
-# We'll store the last submitted job ID and chain the next chunk after it finishes.
-last_job_id=""
+# 4) Function: Return number of jobs in queue for current user
+jobs_in_queue() {
+    # -h omits headers; pipe to wc -l to count lines
+    squeue -u "$USER" -h | wc -l
+}
 
+# 5) Loop over each chunk
 for ((i=0; i<NUM_CHUNKS; i++)); do
     OFFSET=$((i * CHUNK_SIZE))
     END=$((OFFSET + CHUNK_SIZE - 1))
@@ -23,76 +44,55 @@ for ((i=0; i<NUM_CHUNKS; i++)); do
         END=$((TOTAL_ROWS - 1))
     fi
 
-    echo "Submitting array for chunk $i (OFFSET=$OFFSET)..."
+    # ----------------------
+    # Throttle submissions
+    # ----------------------
+    # Wait until we have fewer than MAX_JOBS_IN_QUEUE in the queue
+    # so we do not hit AssocMaxSubmitJobLimit.
+    while [ "$(jobs_in_queue)" -ge "$MAX_JOBS_IN_QUEUE" ]; do
+        echo "You currently have $(jobs_in_queue) jobs in the queue. Limit: $MAX_JOBS_IN_QUEUE"
+        echo "Waiting 5 min before checking again..."
+        sleep 300
+    done
 
-    # If this is the first chunk, submit with no dependency.
-    # Otherwise, submit with --dependency=afterok:<previous_job_id>.
-    if [ "$i" -eq 0 ]; then
-        # Submit the first array
-        job_id=$(
-            sbatch <<EOT | awk '{print $4}'
+    echo "Submitting chunk $i (OFFSET=$OFFSET)..."
+
+    # Actually submit the chunk as an array 0-999, then parse out the job ID.
+    job_id=$(
+        sbatch <<EOT | awk '{print \$4}'
 #!/bin/bash
-#SBATCH --array=0-4999
-#SBATCH --time=2:00:00
-#SBATCH --output=$RESULTS_DIR/out.%A_%a
-#SBATCH --error=$RESULTS_DIR/err.%A_%a
+#SBATCH --array=0-999
+#SBATCH --time=5:00:00
+#SBATCH --output=${RESULTS_DIR}/out.%A_%a
+#SBATCH --error=${RESULTS_DIR}/err.%A_%a
 #SBATCH --killable
 #SBATCH --requeue
 
 # Activate your Python environment
 source /cs/labs/ravehb/idan724/annotatability/annot_venv/bin/activate
 
-# Calculate the actual CSV row using the offset
-ROW_ID=\$((\$SLURM_ARRAY_TASK_ID + $OFFSET))
+ROW_ID=\$((SLURM_ARRAY_TASK_ID + $OFFSET))
 
 if [ "\$ROW_ID" -le "$END" ]; then
-  srun python "$SCRIPT" \
-      --csv_file="$CSV_FILE" \
-      --row_id="\$ROW_ID" \
-      --device="cuda" \
-      --epoch_num=8 \
-      --batch_size=128 \
-      --model_name="mlp" \
-      --output_dir="results"
+    srun python "$SCRIPT" \
+        --csv_file="$CSV_FILE" \
+        --row_id="\$ROW_ID" \
+        --device="cuda" \
+        --epoch_num=8 \
+        --batch_size=128 \
+        --model_name="mlp" \
+        --output_dir="results"
 else
-  echo "Skipping row \$ROW_ID as it is beyond the valid range."
+    echo "Skipping row \$ROW_ID as it exceeds $END."
 fi
 EOT
-        )
+    )
+
+    if [ -z "$job_id" ]; then
+        echo "Warning: Failed to submit chunk $i (OFFSET=$OFFSET)."
     else
-        # Subsequent chunks depend on the previous chunk finishing successfully
-        job_id=$(
-            sbatch --dependency=afterok:${last_job_id} <<EOT | awk '{print $4}'
-#!/bin/bash
-#SBATCH --array=0-4999
-#SBATCH --time=2:00:00
-#SBATCH --output=$RESULTS_DIR/out.%A_%a
-#SBATCH --error=$RESULTS_DIR/err.%A_%a
-#SBATCH --killable
-#SBATCH --requeue
-
-source /cs/labs/ravehb/idan724/annotatability/annot_venv/bin/activate
-
-ROW_ID=\$((\$SLURM_ARRAY_TASK_ID + $OFFSET))
-
-if [ "\$ROW_ID" -le "$END" ]; then
-  srun python "$SCRIPT" \
-      --csv_file="$CSV_FILE" \
-      --row_id="\$ROW_ID" \
-      --device="cuda" \
-      --epoch_num=8 \
-      --batch_size=128 \
-      --model_name="mlp" \
-      --output_dir="results"
-else
-  echo "Skipping row \$ROW_ID as it is beyond the valid range."
-fi
-EOT
-        )
+        echo "Chunk $i submitted with job ID $job_id"
     fi
-
-    echo "Submitted chunk $i (OFFSET=$OFFSET) with job ID $job_id"
-    last_job_id=$job_id
 done
 
-echo "Submitted $NUM_CHUNKS chunked arrays for $TOTAL_ROWS total rows."
+echo "All $NUM_CHUNKS chunks submitted (up to the queue limit $MAX_JOBS_IN_QUEUE at a time)."
