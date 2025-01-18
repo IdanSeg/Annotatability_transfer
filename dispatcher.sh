@@ -9,7 +9,6 @@ SCRIPT="worker_script.py"
 CHUNK_SIZE=1000
 
 # This is the maximum number of total jobs you want to allow
-# in the queue (pending or running) at once. Adjust if needed.
 MAX_JOBS_IN_QUEUE=5000
 
 # ----------------------
@@ -47,21 +46,19 @@ for ((i=0; i<NUM_CHUNKS; i++)); do
     # ----------------------
     # Throttle submissions
     # ----------------------
-    # Wait until we have fewer than MAX_JOBS_IN_QUEUE in the queue
-    # so we do not hit AssocMaxSubmitJobLimit.
     while [ "$(jobs_in_queue)" -ge "$MAX_JOBS_IN_QUEUE" ]; do
         echo "You currently have $(jobs_in_queue) jobs in the queue. Limit: $MAX_JOBS_IN_QUEUE"
-        echo "Waiting 5 min before checking again..."
+        echo "Waiting 5 minutes before checking again..."
         sleep 300
     done
 
     echo "Submitting chunk $i (OFFSET=$OFFSET)..."
 
-    # Actually submit the chunk as an array 0-999, then parse out the job ID.
+    # Actually submit the chunk as an array 0-(CHUNK_SIZE - 1), capturing the job ID via --parsable
     job_id=$(
-        sbatch <<EOT | awk '{print \$4}'
+        sbatch --parsable <<EOT
 #!/bin/bash
-#SBATCH --array=0-999
+#SBATCH --array=0-$((CHUNK_SIZE-1))
 #SBATCH --time=5:00:00
 #SBATCH --output=${RESULTS_DIR}/out.%A_%a
 #SBATCH --error=${RESULTS_DIR}/err.%A_%a
@@ -73,6 +70,7 @@ source /cs/labs/ravehb/idan724/annotatability/annot_venv/bin/activate
 
 ROW_ID=\$((SLURM_ARRAY_TASK_ID + $OFFSET))
 
+# Only run if ROW_ID <= END
 if [ "\$ROW_ID" -le "$END" ]; then
     srun python "$SCRIPT" \
         --csv_file="$CSV_FILE" \
@@ -88,6 +86,7 @@ fi
 EOT
     )
 
+    # If job_id is empty, the sbatch submission failed
     if [ -z "$job_id" ]; then
         echo "Warning: Failed to submit chunk $i (OFFSET=$OFFSET)."
     else
@@ -95,4 +94,4 @@ EOT
     fi
 done
 
-echo "All $NUM_CHUNKS chunks submitted (up to the queue limit $MAX_JOBS_IN_QUEUE at a time)."
+echo "All $NUM_CHUNKS chunks submitted (with a queue limit of $MAX_JOBS_IN_QUEUE)."
