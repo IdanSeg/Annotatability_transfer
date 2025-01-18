@@ -9,7 +9,7 @@ from anndata_manager import *
 
 ### GLOBAL PARAMETERS ###
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-repeats_per_size = 12
+repeats_per_size = 4
 train_sizes = [500]
 ### END GLOBAL PARAMETERS ###
 
