@@ -380,10 +380,9 @@ def find_optimal_compositions(
     logging.info('find_optimal_compositions completed for dataset: %s', dataset_name)
     return best_compositions, label_encoder
 
-def find_optimal_compositions_using_workers(
+def create_comps_for_workers(
     dataset_name,
     adata,
-    label_key,
     train_sizes,
     repeats_per_size
 ):
@@ -423,11 +422,6 @@ def find_optimal_compositions_using_workers(
     E_count = obs_counts.get('Easy-to-learn', 0)
     A_count = obs_counts.get('Ambiguous', 0)
     H_count = obs_counts.get('Hard-to-learn', 0)
-
-    # Get the indices of each group
-    easy_indices = adata.obs.index[adata.obs['Annotation'] == 'Easy-to-learn'].tolist()
-    ambiguous_indices = adata.obs.index[adata.obs['Annotation'] == 'Ambiguous'].tolist()
-    hard_indices = adata.obs.index[adata.obs['Annotation'] == 'Hard-to-learn'].tolist()
 
     # We'll build rows for a DataFrame that mimics the original columns
     # plus "Run" (so we can handle repeats).
@@ -472,21 +466,18 @@ def find_optimal_compositions_using_workers(
                 # We'll store placeholders for fields we'd normally fill in after training
                 job_rows.append({
                     "Train_Size": T,
+                    "Run": run_idx + 1,
                     "Easy": e,
                     "Ambiguous": a,
                     "Hard": h,
-                    # In the original code, we had "Test_Loss", "Train_Indices" after training
-                    # but here they're empty placeholders.
                     "Test_Loss": None,
                     "Train_Indices": None,
-                    # We do store the chosen test set
-                    "Test_Indices": test_indices_str,
-                    "Run": run_idx + 1
+                    "Test_Indices": test_indices_str
                 })
 
     # Convert to DataFrame
-    columns = ["Train_Size", "Easy", "Ambiguous", "Hard", "Test_Loss",
-               "Train_Indices", "Test_Indices", "Run"]
+    columns = ["Train_Size", "Run", "Easy", "Ambiguous", "Hard", "Test_Loss",
+               "Train_Indices", "Test_Indices"]
     jobs_df = pd.DataFrame(job_rows, columns=columns)
 
     # Save out to CSV

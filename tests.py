@@ -10,7 +10,7 @@ from anndata_manager import *
 ### GLOBAL PARAMETERS ###
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 repeats_per_size = 12
-train_sizes = [500, 1000]
+train_sizes = [500]
 ### END GLOBAL PARAMETERS ###
 
 dataset = PBMC()
@@ -26,11 +26,16 @@ batch_size = 128
 
 format_manager = AnnDataManager()
 
-format_manager.general_info(adata)
+# format_manager.general_info(adata)
 adata, group_counts = annotate("pbmc_healthy", adata, label_key, epoch_num_annot, device, swap_probability, percentile, batch_size)
-comp_opt_subset_to_not(
+# comp_opt_subset_to_not(
+#     "pbmc_healthy", adata, label_key, 
+#     {'Easy-to-learn':100, 'Ambiguous':100, 'Hard-to-learn':100}, 
+#     device, epoch_num_composition, epoch_num_annot, batch_size, 
+#     format_manager
+#     )
+
+create_comps_for_workers(
     "pbmc_healthy", adata, label_key, 
-    {'Easy-to-learn':100, 'Ambiguous':100, 'Hard-to-learn':100}, 
-    device, epoch_num_composition, epoch_num_annot, batch_size, 
-    format_manager
+    train_sizes=train_sizes, repeats_per_size=repeats_per_size,
     )
