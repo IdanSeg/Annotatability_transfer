@@ -36,6 +36,6 @@ adata, group_counts = annotate("pbmc_healthy", adata, label_key, epoch_num_annot
 #     )
 
 create_comps_for_workers(
-    "pbmc_healthy", adata, label_key, 
+    "pbmc_healthy", adata,
     train_sizes=train_sizes, repeats_per_size=repeats_per_size,
     )
