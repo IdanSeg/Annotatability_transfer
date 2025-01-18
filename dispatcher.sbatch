@@ -17,7 +17,7 @@ srun python worker_script.py \
     --csv_file="$CSV_FILE" \
     --row_id="$ROW_ID" \
     --device="cuda" \
-    --epoch_num=25 \
-    --batch_size=64 \
+    --epoch_num=8 \
+    --batch_size=128 \
     --model_name="mlp" \
     --output_dir="results"

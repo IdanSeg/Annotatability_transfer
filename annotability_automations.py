@@ -23,6 +23,7 @@ from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from mlp_net import *
 from anndata_manager import *
 import csv
+import json
 
 # from scTab_net import *
 #TODO: get rid of all label_encoder as inputs and use the dedicated function in the manager
@@ -851,6 +852,110 @@ def run_single_subset_evaluation(train_indices, adata, dataset_manager, label_ke
         batch_size=batch_size
     )
     return test_loss
+
+def gather_and_aggregate_results(
+    dataset_name,
+    results_dir="results",
+    final_csv="best_compositions.csv"
+):
+    """
+    Reads all results_*.json from `results_dir`, aggregates runs with the same 
+    (Train_Size, Easy, Ambiguous, Hard) by computing the average test_loss, and
+    then finds the best composition per Train_Size (lowest avg loss).
+
+    Saves the best compositions to `final_csv`.
+    """
+
+    logging.info(f"Gathering results from directory: {results_dir}")
+    all_rows = []
+
+    # 1) Read each JSON result file
+    for fn in os.listdir(results_dir):
+        if fn.startswith("results_") and fn.endswith(".json"):
+            path = os.path.join(results_dir, fn)
+            try:
+                with open(path, "r") as f:
+                    data = json.load(f)
+                # Data has keys like:
+                # {
+                #   "row_id": <int>,
+                #   "Train_Size": <int>,
+                #   "Easy": <int>,
+                #   "Ambiguous": <int>,
+                #   "Hard": <int>,
+                #   "Run": <int>,
+                #   "Test_Indices": [...],
+                #   "Train_Indices": [...],
+                #   "Test_Loss": <float or null>
+                # }
+                all_rows.append(data)
+            except Exception as ex:
+                logging.warning(f"Failed to load {path}: {ex}")
+
+    if not all_rows:
+        logging.warning(f"No JSON files found in {results_dir}. Nothing to aggregate.")
+        return None
+
+    # 2) Convert to a DataFrame
+    df = pd.DataFrame(all_rows)
+
+    # Ensure the relevant columns exist
+    required_cols = ["Train_Size", "Easy", "Ambiguous", "Hard", "Test_Loss", "Run", 
+                     "Train_Indices", "Test_Indices"]
+    missing = [c for c in required_cols if c not in df.columns]
+    if missing:
+        logging.error(f"Missing columns in the results data: {missing}")
+        return None
+
+    # We only aggregate rows that have a valid test_loss
+    valid_df = df.dropna(subset=["Test_Loss"]).copy()
+    if valid_df.empty:
+        logging.warning("No valid results with 'Test_Loss' found. All are NaN or None?")
+        return None
+
+    valid_df["Test_Loss"] = pd.to_numeric(valid_df["Test_Loss"], errors="coerce")
+
+    # 3) Group by (Train_Size, Easy, Ambiguous, Hard) and compute average test_loss
+    #    We'll also gather the run indices and train_indices for each group.
+    agg_funcs = {
+        "Test_Loss": ["mean", "count"],  # avg test loss, plus how many runs
+        "Run": lambda x: list(x),
+        "Train_Indices": lambda x: list(x),  # store a list-of-lists
+        "Test_Indices": "first"  # typically all runs in the same group share the same test set
+    }
+    grouped = valid_df.groupby(["Train_Size", "Easy", "Ambiguous", "Hard"]).agg(agg_funcs)
+
+    # Flatten multi-level columns from the groupby
+    grouped.columns = [
+        "_".join(col).rstrip("_") for col in grouped.columns.to_flat_index()
+    ]
+    # So we get columns like:
+    #   Test_Loss_mean, Test_Loss_count, Run_<lambda>, Train_Indices_<lambda>, Test_Indices_first
+
+    grouped = grouped.reset_index()
+
+    grouped.rename(columns={
+        "Test_Loss_mean": "Avg_Test_Loss",
+        "Test_Loss_count": "Num_Runs",
+        "Run_<lambda>": "All_Runs",
+        "Train_Indices_<lambda>": "All_Train_Indices",
+        "Test_Indices_first": "Test_Indices"
+    }, inplace=True)
+
+    # Now we have a DataFrame like:
+    # Train_Size | Easy | Ambiguous | Hard | Avg_Test_Loss | Num_Runs | All_Runs | All_Train_Indices | Test_Indices
+
+    # 4) For each Train_Size, find the row with the smallest Avg_Test_Loss
+    idxmin_series = grouped.groupby("Train_Size")["Avg_Test_Loss"].idxmin()
+    best_per_size = grouped.loc[idxmin_series].copy()
+
+    # 5) Write out the best compositions for each train size
+    best_per_size.sort_values("Train_Size", inplace=True)
+    best_per_size.to_csv(final_csv, index=False)
+
+    logging.info(f"Wrote best compositions to {final_csv}")
+
+    return best_per_size
 
 def comp_opt_subset_to_not(
     dataset_name,
