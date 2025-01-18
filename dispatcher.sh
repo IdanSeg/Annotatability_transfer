@@ -59,6 +59,8 @@ for ((i=0; i<NUM_CHUNKS; i++)); do
 #!/bin/bash
 #SBATCH --array=0-$((CHUNK_SIZE-1))
 #SBATCH --time=5:00:00
+#SBATCH --mem=16G
+#SBATCH --cpus-per-task=8
 #SBATCH --output=${RESULTS_DIR}/out.%A_%a
 #SBATCH --error=${RESULTS_DIR}/err.%A_%a
 #SBATCH --killable
