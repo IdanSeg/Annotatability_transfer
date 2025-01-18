@@ -71,7 +71,6 @@ def worker_run_job(
     # Parse test indices from CSV
     test_indices = test_indices_str.split(",") if isinstance(test_indices_str, str) else []
     test_indices = [idx.strip() for idx in test_indices if idx.strip()]
-    test_adata = manager.subset(adata, test_indices)
 
     # -------------------------------------------------------------------------
     # 2) Load the PBMC dataset via the PBMC class (already annotated & preprocessed)
@@ -80,6 +79,7 @@ def worker_run_job(
     # Here, dataset.adata is fully annotated & preprocessed; no need for extra steps.
     adata = sc.read(DATASET + '_annotated.h5ad')
     logging.info(f"[Worker] Loaded PBMC dataset shape: {adata.shape}")
+    test_adata = manager.subset(adata, test_indices)
 
     # -------------------------------------------------------------------------
     # 3) Exclude the test cells so that get_subset_composition() won't overlap
