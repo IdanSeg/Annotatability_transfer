@@ -6,16 +6,17 @@
 CSV_FILE="pbmc_healthy_worker_jobs.csv"
 RESULTS_DIR="results"
 SCRIPT="worker_script.py"
-CHUNK_SIZE=1000
+CHUNK_SIZE=100
 
-# This is the maximum number of total jobs you want to allow
-MAX_JOBS_IN_QUEUE=5000
+# Maximum number of total jobs you want to allow
+# in the queue (pending or running) at once
+MAX_JOBS_IN_QUEUE=1000
 
 # ----------------------
 # Script Logic
 # ----------------------
 
-# 1) Create results dir if it doesn't exist
+# 1) Create results directory if it doesn't exist
 mkdir -p "$RESULTS_DIR"
 
 # 2) Count total data rows
@@ -31,7 +32,6 @@ echo "Dispatching $NUM_CHUNKS chunks total for $TOTAL_ROWS rows..."
 
 # 4) Function: Return number of jobs in queue for current user
 jobs_in_queue() {
-    # -h omits headers; pipe to wc -l to count lines
     squeue -u "$USER" -h | wc -l
 }
 
@@ -43,9 +43,7 @@ for ((i=0; i<NUM_CHUNKS; i++)); do
         END=$((TOTAL_ROWS - 1))
     fi
 
-    # ----------------------
-    # Throttle submissions
-    # ----------------------
+    # Throttle by checking we don't exceed MAX_JOBS_IN_QUEUE
     while [ "$(jobs_in_queue)" -ge "$MAX_JOBS_IN_QUEUE" ]; do
         echo "You currently have $(jobs_in_queue) jobs in the queue. Limit: $MAX_JOBS_IN_QUEUE"
         echo "Waiting 5 minutes before checking again..."
@@ -54,9 +52,10 @@ for ((i=0; i<NUM_CHUNKS; i++)); do
 
     echo "Submitting chunk $i (OFFSET=$OFFSET)..."
 
-    # Actually submit the chunk as an array 0-(CHUNK_SIZE - 1), capturing the job ID via --parsable
-    job_id=$(
-        sbatch --parsable <<EOT
+    # 6) Retry sbatch if we see AssocMaxSubmitJobLimit or an empty job_id
+    while true; do
+        submission_output=$(
+            sbatch --parsable <<EOT 2>&1
 #!/bin/bash
 #SBATCH --array=0-$((CHUNK_SIZE-1))
 #SBATCH --time=5:00:00
@@ -65,7 +64,6 @@ for ((i=0; i<NUM_CHUNKS; i++)); do
 #SBATCH --killable
 #SBATCH --requeue
 
-# Activate your Python environment
 source /cs/labs/ravehb/idan724/annotatability/annot_venv/bin/activate
 
 ROW_ID=\$((SLURM_ARRAY_TASK_ID + $OFFSET))
@@ -84,14 +82,29 @@ else
     echo "Skipping row \$ROW_ID as it exceeds $END."
 fi
 EOT
-    )
+        )
 
-    # If job_id is empty, the sbatch submission failed
-    if [ -z "$job_id" ]; then
-        echo "Warning: Failed to submit chunk $i (OFFSET=$OFFSET)."
-    else
-        echo "Chunk $i submitted with job ID $job_id"
-    fi
+        # If submission succeeded, 'submission_output' should be the numeric job ID
+        # If it failed, 'submission_output' might contain an error message
+        if [[ "$submission_output" =~ ^[0-9]+$ ]]; then
+            # Succeeded
+            echo "Chunk $i submitted with job ID $submission_output"
+            break
+        else
+            # Check if it's the specific AssocMaxSubmitJobLimit error
+            if echo "$submission_output" | grep -q "AssocMaxSubmitJobLimit"; then
+                echo "AssocMaxSubmitJobLimit error encountered. Will wait 5 minutes and retry."
+                sleep 300
+            else
+                # Some other error happened; still wait + retry, or exit
+                echo "Warning: submission failed for chunk $i with message:"
+                echo "$submission_output"
+                echo "Will wait 5 minutes and retry..."
+                sleep 300
+            fi
+        fi
+    done
+
 done
 
 echo "All $NUM_CHUNKS chunks submitted (with a queue limit of $MAX_JOBS_IN_QUEUE)."
