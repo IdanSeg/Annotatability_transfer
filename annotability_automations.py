@@ -380,6 +380,121 @@ def find_optimal_compositions(
     logging.info('find_optimal_compositions completed for dataset: %s', dataset_name)
     return best_compositions, label_encoder
 
+def find_optimal_compositions_using_workers(
+    dataset_name,
+    adata,
+    label_key,
+    train_sizes,
+    repeats_per_size
+):
+    """
+    Create a CSV of all (Train_Size, composition, run) jobs needed, *without* running training.
+    Each row can later be picked up by a worker script.
+
+    Parameters:
+    - dataset_name (str): Name identifier for the dataset (e.g., 'merfish', 'pbmc').
+    - adata (AnnData): The dataset to process.
+    - label_key (str): The key in adata.obs that contains the labels.
+    - train_sizes (list of int): List of training set sizes to experiment with.
+    - repeats_per_size (int): Number of repeats for each training size.
+
+    This function does NOT run training. It only enumerates:
+      1) A random test set for each Train_Size
+      2) All valid (Easy, Ambiguous, Hard) splits that sum to Train_Size
+      3) The repeated runs
+
+    Then saves a CSV of jobs. Each row = one job to be run by a worker script.
+    """
+    logging.info('Starting find_optimal_compositions_using_workers for dataset: %s', dataset_name)
+
+    # This is the CSV that will list the "jobs" we want each worker to run.
+    csv_file = dataset_name + '_worker_jobs.csv'
+
+    # If it already exists, do NOT overwrite
+    if os.path.exists(csv_file):
+        logging.info('CSV file %s already exists. Skipping creation.', csv_file)
+        return
+
+    # Re-derive group counts from the actual data
+    obs_counts = adata.obs['Annotation'].value_counts()
+    logging.info('Group counts in the data: %s', obs_counts.to_dict())
+
+    # Extract counts for each group
+    E_count = obs_counts.get('Easy-to-learn', 0)
+    A_count = obs_counts.get('Ambiguous', 0)
+    H_count = obs_counts.get('Hard-to-learn', 0)
+
+    # Get the indices of each group
+    easy_indices = adata.obs.index[adata.obs['Annotation'] == 'Easy-to-learn'].tolist()
+    ambiguous_indices = adata.obs.index[adata.obs['Annotation'] == 'Ambiguous'].tolist()
+    hard_indices = adata.obs.index[adata.obs['Annotation'] == 'Hard-to-learn'].tolist()
+
+    # We'll build rows for a DataFrame that mimics the original columns
+    # plus "Run" (so we can handle repeats).
+    job_rows = []
+
+    # Full list of all sample indices (used for picking test sets)
+    all_indices = adata.obs.index.tolist()
+
+    # For each requested Train_Size
+    for T in train_sizes:
+        # The test set is 25% of T, chosen once per T
+        test_size = int(0.25 * T)
+        if len(all_indices) < test_size:
+            logging.warning(f"Not enough samples for Test Size={test_size} at Train_Size={T}. Skipping.")
+            continue
+
+        # Randomly sample test_size from the entire dataset
+        test_indices = random.sample(all_indices, test_size)
+        test_indices_str = ",".join(map(str, test_indices))
+
+        # step_size logic
+        step_size = max(1, T // 100)
+
+        # Generate all compositions (e,a,h) summing to T
+        compositions = []
+        for e in range(0, min(T, E_count) + 1, step_size):
+            for a in range(0, min(T - e, A_count) + 1, step_size):
+                h = T - e - a
+                if 0 <= h <= H_count:
+                    compositions.append((e, a, h))
+
+        if not compositions:
+            logging.warning(f"No valid compositions for Train Size={T}. Skipping.")
+            continue
+
+        # For each repeat from 1..repeats_per_size
+        for run_idx in range(repeats_per_size):
+            # For each composition
+            for (e, a, h) in tqdm(compositions,
+                                  desc=f"Preparing job rows for T={T} (Run {run_idx+1})",
+                                  disable=True):
+                # We'll store placeholders for fields we'd normally fill in after training
+                job_rows.append({
+                    "Train_Size": T,
+                    "Easy": e,
+                    "Ambiguous": a,
+                    "Hard": h,
+                    # In the original code, we had "Test_Loss", "Train_Indices" after training
+                    # but here they're empty placeholders.
+                    "Test_Loss": None,
+                    "Train_Indices": None,
+                    # We do store the chosen test set
+                    "Test_Indices": test_indices_str,
+                    "Run": run_idx + 1
+                })
+
+    # Convert to DataFrame
+    columns = ["Train_Size", "Easy", "Ambiguous", "Hard", "Test_Loss",
+               "Train_Indices", "Test_Indices", "Run"]
+    jobs_df = pd.DataFrame(job_rows, columns=columns)
+
+    # Save out to CSV
+    jobs_df.to_csv(csv_file, index=False)
+    logging.info("Created job CSV %s with %d rows of jobs.", csv_file, len(jobs_df))
+
+    return jobs_df
+
 def visualize_optimal_compositions(dataset_name):
     csv_file = dataset_name + '_optimal_compositions.csv'
 
