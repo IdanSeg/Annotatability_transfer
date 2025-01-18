@@ -65,6 +65,7 @@ def worker_run_job(
     h = int(job_row["Hard"])
     test_indices_str = job_row["Test_Indices"]
     run_id = int(job_row.get("Run", 1))
+    test_loss = None
 
     logging.info(f"[Worker] row={row_id} => T={train_size}, E={e}, A={a}, H={h}, run={run_id}")
 
@@ -137,6 +138,10 @@ def worker_run_job(
             except Exception as train_ex:
                 logging.error(f"[Worker] train_and_eval failed: {train_ex}")
                 test_loss = None
+
+    if test_loss is None:
+        logging.warning(f"[Worker] has test_loss=None for {row_id} due to errors. Exiting.")
+        return
 
     # -------------------------------------------------------------------------
     # 6) Save result to JSON
