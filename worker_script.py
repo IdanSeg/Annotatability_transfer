@@ -13,7 +13,7 @@ import pandas as pd
 # Import your dataset classes and automation utilities
 from pbmc import PBMC              # your PBMC dataset class
 from anndata_manager import AnnDataManager
-from annotability_automations import get_subset_composition, train_and_eval
+from annotability_automations import get_subset_composition
 
 ###############################################################################
 # Constants / Configuration
