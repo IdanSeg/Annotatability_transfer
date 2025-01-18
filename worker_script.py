@@ -18,7 +18,7 @@ from annotability_automations import get_subset_composition
 ###############################################################################
 # Constants / Configuration
 ###############################################################################
-DATASET = "PBMC_healthy"  # <--- Should be pre-annotated & preprocessed
+DATASET = "pbmc_healthy"  # <--- Should be pre-annotated & preprocessed
 LABEL_KEY = "cell_type"             
 
 #TODO: currenly uses predefined parameters. Adapt to dataset-dependent parameters.
