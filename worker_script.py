@@ -56,7 +56,8 @@ def worker_run_job(
     jobs_df = pd.read_csv(csv_file)
     if row_id < 0 or row_id >= len(jobs_df):
         raise IndexError(f"[Worker] row_id={row_id} out of range (0..{len(jobs_df)-1}).")
-
+    
+    manager = AnnDataManager()
     job_row = jobs_df.iloc[row_id]
     train_size = int(job_row["Train_Size"])
     e = int(job_row["Easy"])
@@ -81,12 +82,7 @@ def worker_run_job(
     logging.info(f"[Worker] Loaded PBMC dataset shape: {adata.shape}")
 
     # -------------------------------------------------------------------------
-    # 3) Initialize AnnDataManager
-    # -------------------------------------------------------------------------
-    manager = AnnDataManager()
-
-    # -------------------------------------------------------------------------
-    # 4) Exclude the test cells so that get_subset_composition() won't overlap
+    # 3) Exclude the test cells so that get_subset_composition() won't overlap
     # -------------------------------------------------------------------------
     all_obs_index = set(adata.obs.index)
     test_set = set(test_indices)
@@ -110,7 +106,7 @@ def worker_run_job(
         }
 
         # ---------------------------------------------------------------------
-        # 5) Get training indices from adata_trainable
+        # 4) Get training indices from adata_trainable
         # ---------------------------------------------------------------------
         try:
             train_adata, train_indices_local = get_subset_composition(adata_trainable, group_counts_dict)
@@ -120,7 +116,7 @@ def worker_run_job(
 
 
             # -----------------------------------------------------------------
-            # 6) Prepare data, run train_and_eval
+            # 5) Prepare data, run train_and_eval
             # -----------------------------------------------------------------
             device_torch = torch.device(device if torch.cuda.is_available() else "cpu")
             label_encoder = manager.getLabelEncoder(adata, label_key=LABEL_KEY)
@@ -143,7 +139,7 @@ def worker_run_job(
                 test_loss = None
 
     # -------------------------------------------------------------------------
-    # 7) Save result to JSON
+    # 6) Save result to JSON
     # -------------------------------------------------------------------------
     os.makedirs(output_dir, exist_ok=True)
     out_path = os.path.join(output_dir, f"results_{row_id}.json")
