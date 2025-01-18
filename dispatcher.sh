@@ -10,7 +10,7 @@ CHUNK_SIZE=1000
 
 # This is the maximum number of total jobs you want to allow
 # in the queue (pending or running) at once. Adjust if needed.
-MAX_JOBS_IN_QUEUE=2
+MAX_JOBS_IN_QUEUE=5000
 
 # ----------------------
 # Script Logic
