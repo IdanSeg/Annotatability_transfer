@@ -109,8 +109,8 @@ def worker_run_job(
         # 4) Get training indices from adata_trainable
         # ---------------------------------------------------------------------
         try:
-            train_adata, train_indices_local = get_subset_composition(adata_trainable, group_counts_dict)
-            # train_indices_local are row labels from the subset, i.e. subset of trainable_indices
+            train_adata, final_train_indices = get_subset_composition(adata_trainable, group_counts_dict)
+            # final_train_indices are row labels from the subset, i.e. subset of trainable_indices
         except Exception as ex:
             logging.error(f"[Worker] get_subset_composition failed: {ex}")
 
